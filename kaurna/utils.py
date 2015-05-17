@@ -75,96 +75,143 @@ def get_data_key(encryption_context=None, region='us-east-1'):
     data_key = kms.generate_data_key(key_id='alias/kaurna', encryption_context=encryption_context, key_spec='AES_256')
     return data_key
 
+def _generate_encryption_context(authorized_entities):
+    encryption_context = {}
+    for entity in authorized_entities:
+        encryption_context[entity] = 'kaurna'
+    return encryption_context
+
 # done but untested
 def store_secret(secret_name, secret, secret_version=None, authorized_entities=None, region='us-east-1'):
     # This method will store the key in DynamoDB
     # If version is specified, it'll be stored as that version, or an error will be thrown if that version exists
     # if the version isn't specified, it'll be stored as version 1 if the entry doesn't already exist and version N+1 if it does, where N is the greatest existing version
-    table = get_kaurna_table(region=region)
+    items = load_all_entries(secret_name=secret_name, secret_version=secret_version, region=region, attributes_to_get=['secret_name','secret_version'])
     if secret_version:
-        items = table.query(hash_key=secret_name, range_key_condition=EQ(int(secret_version)), attributes_to_get=['secret_name','secret_version'])
         for item in items:
             # if there's anything here, we want to fail because the specified secret/version already exists
             raise Exception("To update an existing secret/version, please use update_secret, or use delete_secret to delete the secret/version first.")
     else:
-        items = table.query(hash_key=secret_name, attributes_to_get=['secret_name','secret_version'])
         versions = [item['secret_version'] for item in items]
         secret_version = 1 + max(versions + [0])
     # at this point both secret_name and secret_version are set, and we know neither of them is currently in use.
-    encryption_context_dict = {}
-    for entity in authorized_entities:
-        encryption_context_dict[entity] = 'kaurna'
+    encryption_context_dict = _generate_encryption_context(authorized_entities)
     encryption_context_string = json.dumps(encryption_context_dict)
     data_key = get_data_key(encryption_context=encryption_context_dict, region=region)
     encrypted_data_key = binascii.b2a_base64(data_key['CiphertextBlob'])
     encrypted_secret = encrypt_with_key(plaintext=secret, key=data_key['Plaintext'])
     now = int(time.time()) # we really don't need sub-second accuracy on this, so strip it out to prevent confusion
     attrs = {
-        'secret_name':secret_name,
-        'secret_version':int(secret_version),
-        'encrypted_secret':encrypted_secret,
-        'encrypted_data_key':encrypted_data_key,
-        'encryption_context':encryption_context_string,
-        'authorized_entities':json.dumps(authorized_entities),
-        'create_date':now,
-        'last_data_key_rotation':now,
-        'deprecated': 'No'
+        'secret_name':secret_name, # customer sets
+        'secret_version':int(secret_version), # customer sets
+        'encrypted_secret':encrypted_secret, # customer provides plaintext, then kaurna encrypts
+        'encrypted_data_key':encrypted_data_key, # kaurna gets from kms
+        'encryption_context':encryption_context_string, # kaurna derives from authorized_entities
+        'authorized_entities':json.dumps(authorized_entities), # customer sets
+        'create_date':now, # kaurna sets this at initial creation
+        'last_data_key_rotation':now, # kaurna sets this whenever the data key changes
+        'deprecated': False # customer sets
         }
-    return table.new_item(attrs=attrs)
+    return get_kaurna_table(region=region).new_item(attrs=attrs)
 
+# done but untested
+def load_all_entries(secret_name, secret_version=None, region='us-east-1', attributes_to_get=None):
+    table = get_kaurna_table(region=region)
+    if secret_version:
+        return table.query(hash_key=secret_name, range_key_condition=EQ(int(secret_version)), attributes_to_get=attributes_to_get)
+    else:
+        return table.query(hash_key=secret_name, attributes_to_get=attributes_to_get)
+
+# done but untested
 def rotate_data_key(secret_name, secret_version=None, region='us-east-1'):
-    # This method will rotate the data key on a secret/version pair, or all versions of a secret if version is None
-    encrypted_secret = 'foo'
-    encrypted_key='bar'
-    encryption_context='{"foo":"bar"}'
-    # Let's assume the correct row has been loaded so that I can write the KMS part now
-    decrypted_key = decrypt_with_kms(encrypted_key, encryption_context, region=region)['Plaintext']
-    decrypted_secret = decrypt_with_key(encrypted_secret, decrypted_key)
-    new_data_key = get_data_key(encryption_context=encryption_context, region=region)
-    new_encrypted_key = binascii.b2a_base64(new_data_key['CiphertextBlob'])
-    new_encrypted_secret = encrypt_with_key(plaintext=decrypted_secret, key=new_data_key['Plaintext'])
-    # store new_encrypted_key and new_encrypted_secret in DynamoDB
-    pass
+    items = load_all_entries(secret_name=secret_name, secret_version=secret_version, region=region)
+    for item in items:
+        _reencrypt_item_and_save(item)
+    return
 
+# done but untested
+def _reencrypt_item_and_save(item):
+    # this method takes a DynamoDB item and reencrypts it
+    # It uses the 'encryption_context' entry for decryption, but then uses the 'authorized_entities' attribute to re-encrypt
+    old_encrypted_secret = item['encrypted_secret']
+    old_encrypted_key = item['encrypted_data_key']
+    old_encryption_context = item['encryption_context']
+    new_encryption_context = _generate_encryption_context(json.loads(item['authorized_entities']))
+    new_data_key = get_data_key(encryption_context=new_encryption_context, region=region)
+    new_encrypted_key = binascii.b2a_base64(new_data_key['CiphertextBlob'])
+    new_encrypted_secret = encrypt_with_key(plaintext=decrypt_with_key(old_encrypted_secret, decrypt_with_kms(old_encrypted_key, old_encryption_context, region=region)['Plaintext']), key=new_data_key['Plaintext'])
+    item['encryption_context'] = new_encryption_context
+    item['encrypted_secret'] = new_encrypted_secret
+    item['encrypted_data_key'] = new_encrypted_data_key
+    item['last_data_key_rotation'] = int(time.time())
+    item.save()
+    return item
+
+# done but untested
 def update_secret(secret_name, secret_version=None, authorized_entities=None, region='us-east-1'):
     # This method will update the authorized entities for a secret.
     # If no version is specified, it will update all versions of the secret
-    pass
+    items = load_all_entries(secret_name=secret_name, secret_version=secret_version, region=region)
+    for item in item:
+        item['authorized_entities'] = json.dumps[authorized_entities]
+        _reencrypt_item_and_save(item)
+    return
 
+# done but untested
 def delete_secret(secret_name, secret_version=None, region='us-east-1'):
     # This method will delete the specified secret, or all versions of the secret if version is None
-    pass
+    items = load_all_entries(secret_name=secret_name, secret_version=secret_version, region=region)
+    for item in item:
+        item.delete()
+    return
 
+# done but untested
 def deprecate_secret(secret_name, secret_version=None, region='us-east-1'):
     # This method will mark the specified secret as deprecated, so that kaurna knows that it's old and shouldn't be used
-    pass
+    items = load_all_entries(secret_name=secret_name, secret_version=secret_version, region=region)
+    for item in item:
+        item['deprecated'] = True
+        item.save()
+    return
 
-def list_secrets(secret_name=None, region='us-east-1'):
-    # This method will list all of the stored secrets
-    # if secret_name is passed in, it'll only return the versions of that secret
-    # return format:
-    # [{"secret_name":"foobar", "versions"=[{"secret_version":1, "create_date":123456, "last_data_key_rotation":234567, "encryption_context":"", "authorized_entities":"", "deprecated":"False"}]}]
-    pass
+# done but untested
+def activate_secret(secret_name, secret_version=None, region='us-east-1'):
+    # This method will mark the specified secret as NOT deprecated, so that kaurna knows that it can be used
+    items = load_all_entries(secret_name=secret_name, secret_version=secret_version, region=region)
+    for item in item:
+        item['deprecated'] = False
+        item.save()
+    return
 
-def describe_secret(secret_name, secret_version=None, region='us-east-1'):
+# done but untested
+def describe_secrets(secret_name=None, secret_version=None, region='us-east-1'):
     # This method will return a variety of non-secret information about a secret
-    pass
+    # If secret_name is provided, only versions of that secret will be described
+    # if secret_name and secret_version are both provided, only that secret/version will be described
+    # if secret_version is provided but secret_name isn't, an error will be thrown
+    if secret_version and not secret_name:
+        raise Exception("If secret_version is provided, secret_name must also be provided.")
+    # return format:
+    # {"foobar": {1:{"create_date":123456, "last_data_key_rotation":234567, "authorized_entities":"", "deprecated":False}}}
+    descriptions = []
+    items = load_all_entries(secret_name=secret_name, secret_version=secret_version, region=region, attributes_to_get=['secret_name','secret_version','create_date','last_data_key_rotation','authorized_entities','deprecated'])
+    for item in item:
+        name = item['secret_name']
+        version = item['secret_version']
+        descriptions[name] = descriptions.get(name, {})
+        description = {
+            'create_date' : item['create_date'],
+            'last_data_key_rotation' : item['last_data_key_rotation'],
+            'authorized_entities' : json.loads(item['authorized_entities']),
+            'deprecated': item['deprecated']
+            }
+        descriptions[name][version] = description
+    return descriptions
 
+# done but untested
 def get_secret(secret_name, secret_version=None, region='us-east-1'):
-    # Load the possible rows from DynamoDB
-    # If the version is specified, we know specifically which entry to load.
-    # If the version isn't specified, load the highest-numbered one.
-    # Or perhaps they'll all be stored in the same entry, who knows.
-    # Pull the ciphertext and encryption context
-    # Decrypt with KMS
-    # Profit
-    encrypted_secret = 'foo'
-    encrypted_key='bar'
-    encryption_context='{"foo":"bar"}'
-    # Let's assume the correct row has been loaded so that I can write the KMS part now
-    decrypted_key = decrypt_with_kms(encrypted_key, encryption_context, region=region)['Plaintext']
-    decrypted_secret = decrypt_with_key(encrypted_secret, decrypted_key)
-    return decrypted_secret
+    item = sorted(load_all_entries(secret_name=secret_name, secret_version=secret_version, region=region), key=lambda i: item['secret_version'])[-1]
+    return decrypt_with_key(item['encrypted_secret'], decrypt_with_kms(item['encrypted_data_key'], item['encryption_context'], region=region)['Plaintext'])
 
 # done but untested
 def encrypt_with_key(plaintext, key, iv=None):
