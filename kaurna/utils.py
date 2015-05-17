@@ -1,7 +1,5 @@
 #!/usr/bin/env python
 
-# This file will contain the general kaurna functionality needed by both kaurna.writer and kaurna.reader.
-
 import base64
 import boto.dynamodb
 import boto.kms
@@ -33,12 +31,22 @@ def create_kaurna_table(region='us-east-1'):
     # last_data_key_rotation
     pass
 
-def get_kaurna_key(create_if_missing=True, region='us-east-1'):
-    # This method will get the kaurna KMS master key
+def create_kaurna_key(region='us-east-1'):
+    # This method will create the kaurna KMS master key if necessary
+    kms = boto.kms.connect_to_region(region_name=region)
+    aliases = kms.list_aliases()
+    if 'kaurna' in aliases:
+        return
+    else:
+        # TODO: see what the format of this response is and make it so that the alias gets attached properly
+        raise Exception('Not yet implemented!')
     pass
 
-def get_data_key(region='us-east-1'):
+def get_data_key(encryption_context=None, region='us-east-1'):
     # This method will generate a new data key
+    kms = boto.kms.connect_to_region(region_name=region)
+    data_key = kms.generate_data_key(key_id='kaurna', encryption_context=encryption_context)
+    # the data key output is actually a weird dict.  I can't remember off the top of my head the format, so I'll need to play around and find that.
     pass
 
 def store_secret(secret_name, secret, version=1, authorized_entities=None, region='us-east-1'):
