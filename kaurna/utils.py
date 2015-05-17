@@ -34,20 +34,27 @@ def create_kaurna_table(region='us-east-1'):
 def create_kaurna_key(region='us-east-1'):
     # This method will create the kaurna KMS master key if necessary
     kms = boto.kms.connect_to_region(region_name=region)
+    # list_aliases response:
+    # {'Truncated': False, 'Aliases': [{'AliasArn': 'arn:aws:kms:us-east-1:000000000000:alias/aws/ebs', 'AliasName': 'alias/aws/ebs'}, {'AliasArn': 'arn:aws:kms:us-east-1:000000000000:alias/aws/rds', 'AliasName': 'alias/aws/rds'}, {'AliasArn': 'arn:aws:kms:us-east-1:000000000000:alias/aws/redshift', 'AliasName': 'alias/aws/redshift'}, {'AliasArn': 'arn:aws:kms:us-east-1:000000000000:alias/aws/s3', 'AliasName': 'alias/aws/s3'}, {'AliasArn': 'arn:aws:kms:us-east-1:000000000000:alias/kaurna', 'AliasName': 'alias/kaurna', 'TargetKeyId': '1234abcd-12ab-12ab-12ab-123456abcdef'}]}
     aliases = kms.list_aliases()
-    if 'kaurna' in aliases:
+    if 'alias/kaurna' in [alias['AliasName'] for alias in aliases['Aliases']]:
         return
     else:
+        # create_key response:
+        # {'KeyMetadata': {'KeyId': '1234abcd-12ab-12ab-12ab-123456abcdef', 'Description': '', 'Enabled': True, 'KeyUsage': 'ENCRYPT_DECRYPT', 'CreationDate': 1431872957.123, 'Arn': 'arn:aws:kms:us-east-1:000000000000:key/1234abcd-12ab-12ab-12ab-123456abcdef', 'AWSAccountId': '000000000000'}}
         # TODO: see what the format of this response is and make it so that the alias gets attached properly
-        raise Exception('Not yet implemented!')
-    pass
+        response = kms.create_key()
+        # create_alias has no output
+        kms.create_alias('alias/kaurna', response['KeyMetadata']['KeyId'])
+        return
 
 def get_data_key(encryption_context=None, region='us-east-1'):
     # This method will generate a new data key
     kms = boto.kms.connect_to_region(region_name=region)
-    data_key = kms.generate_data_key(key_id='kaurna', encryption_context=encryption_context)
-    # the data key output is actually a weird dict.  I can't remember off the top of my head the format, so I'll need to play around and find that.
-    pass
+    # generate_data_key output:
+    # {'Plaintext': '<binary blob>', 'KeyId': 'arn:aws:kms:us-east-1:000000000000:key/1234abcd-12ab-12ab-12ab-123456abcdef', 'CiphertextBlob': '<binary blob>'}
+    data_key = kms.generate_data_key(key_id='alias/kaurna', encryption_context=encryption_context, key_spec='AES_256')
+    return data_key
 
 def store_secret(secret_name, secret, version=1, authorized_entities=None, region='us-east-1'):
     # This method will store the key in DynamoDB
@@ -55,6 +62,17 @@ def store_secret(secret_name, secret, version=1, authorized_entities=None, regio
 
 def rotate_data_key(secret_name, version=None, region='us-east-1'):
     # This method will rotate the data key on a secret/version pair, or all versions of a secret if version is None
+
+    encrypted_secret = 'foo'
+    encrypted_key='bar'
+    encryption_context='{"foo":"bar"}'
+    # Let's assume the correct row has been loaded so that I can write the KMS part now
+    decrypted_key = decrypt_with_kms(encrypted_key, encryption_context, region=region)['Plaintext']
+    decrypted_secret = decrypt_with_key(encrypted_secret, decrypted_key)
+    new_data_key = get_data_key(encryption_context=encryption_context, region=region)
+    new_encrypted_key = binascii.b2a_base64(new_data_key['CiphertextBlob'])
+    new_encrypted_secret = encrypt_with_key(plaintext=decrypted_secret, key=new_data_key['Plaintext'])
+    # store new_encrypted_key and new_encrypted_secret in DynamoDB
     pass
 
 def update_secret(secret_name, version=None, authorized_entities=None, region='us-east-1'):
@@ -82,7 +100,13 @@ def get_secret(secret_name, version=None, region='us-east-1'):
     # Pull the ciphertext and encryption context
     # Decrypt with KMS
     # Profit
-    pass
+    encrypted_secret = 'foo'
+    encrypted_key='bar'
+    encryption_context='{"foo":"bar"}'
+    # Let's assume the correct row has been loaded so that I can write the KMS part now
+    decrypted_key = decrypt_with_kms(encrypted_key, encryption_context)['Plaintext']
+    decrypted_secret = decrypt_with_key(encrypted_secret, decrypted_key)
+    return decrypted_secret
 
 def encrypt_with_key(plaintext, key, iv=None):
     return (lambda iv: base64.b64encode(iv + AES.new(key, AES.MODE_CBC, iv).encrypt(pad(plaintext))))(iv if iv else Random.new().read(AES.block_size))
@@ -90,9 +114,13 @@ def encrypt_with_key(plaintext, key, iv=None):
 def decrypt_with_key(ciphertext, key):
     return unpad(AES.new(key, AES.MODE_CBC, base64.b64decode(ciphertext)[:16]).decrypt(base64.b64decode(ciphertext)[16:]))
 
-def encrypt_with_kms(plaintext, key_id, encryption_context=None, grant_tokens=None, region='us-east-1'):
+def encrypt_with_kms(plaintext, key_id='alias/kaurna', encryption_context=None, grant_tokens=None, region='us-east-1'):
+    # encrypt output:
+    # {u'KeyId': u'arn:aws:kms:us-east-1:000000000000:key/1234abcd-12ab-12ab-12ab-123456abcdef', u'CiphertextBlob': '<binary blob>'}
     return binascii.b2a_base64(boto.kms.conenct_to_region(region_name=region).encrypt(key_id=key_id, plaintext=plaintext, encryption_context=encryption_context, grant_tokens=grant_tokens)['CiphertextBlob'])
 
 def decrypt_with_kms(ciphertext_blob, encryption_context=None, grant_tokens=None, region='us-east-1'):
-    return boto.kms.conenct_to_region(region_name=region).decrypt(ciphertext_blob = binascii.a2b_base64(ciphertext_blob), encryption_context=encryption_context, grant_tokens=grant_tokens)
+    # decrypt output:
+    # {'Plaintext': '<binary blob>', 'KeyId': 'arn:aws:kms:us-east-1:000000000000:key/1234abcd-12ab-12ab-12ab-123456abcdef'}
+    return boto.kms.connect_to_region(region_name=region).decrypt(ciphertext_blob = binascii.a2b_base64(ciphertext_blob), encryption_context=encryption_context, grant_tokens=grant_tokens)
 
