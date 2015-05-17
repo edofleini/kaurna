@@ -1,6 +1,7 @@
 #!/usr/bin/env python
 
 import base64
+import binascii
 import boto.dynamodb
 from boto.dynamodb.condition import *
 from boto.exception import DynamoDBResponseError
@@ -8,6 +9,7 @@ import boto.kms
 from Crypto.Cipher import AES
 from Crypto import Random
 import json
+import time
 
 # http://stackoverflow.com/questions/12524994/encrypt-decrypt-using-pycrypto-aes-256
 BS = 16
@@ -17,7 +19,7 @@ pad = lambda s: s + (BS - len(s) % BS) * chr(BS - len(s) % BS)
 # this removes the last X bytes of s, where X is the numeric value of the last byte
 unpad = lambda s: s[:-ord(s[len(s)-1:])]
 
-# done but untested
+# manually tested
 def get_kaurna_table(create_if_missing=True, region='us-east-1', read_throughput=1, write_throughput=1):
     # declared schema:
     # hash: secret_name
@@ -48,7 +50,7 @@ def get_kaurna_table(create_if_missing=True, region='us-east-1', read_throughput
         else:
             raise e
 
-# done but untested
+# manually tested
 def create_kaurna_key(region='us-east-1'):
     # This method will create the kaurna KMS master key if necessary
     kms = boto.kms.connect_to_region(region_name=region)
@@ -66,7 +68,7 @@ def create_kaurna_key(region='us-east-1'):
         kms.create_alias('alias/kaurna', response['KeyMetadata']['KeyId'])
         return
 
-# done but untested
+# manually tested
 def get_data_key(encryption_context=None, region='us-east-1'):
     # This method will generate a new data key
     kms = boto.kms.connect_to_region(region_name=region)
@@ -75,13 +77,14 @@ def get_data_key(encryption_context=None, region='us-east-1'):
     data_key = kms.generate_data_key(key_id='alias/kaurna', encryption_context=encryption_context, key_spec='AES_256')
     return data_key
 
+# manually tested
 def _generate_encryption_context(authorized_entities):
     encryption_context = {}
     for entity in authorized_entities:
         encryption_context[entity] = 'kaurna'
     return encryption_context
 
-# done but untested
+# tested manually
 def store_secret(secret_name, secret, secret_version=None, authorized_entities=None, region='us-east-1'):
     # This method will store the key in DynamoDB
     # If version is specified, it'll be stored as that version, or an error will be thrown if that version exists
@@ -112,9 +115,10 @@ def store_secret(secret_name, secret, secret_version=None, authorized_entities=N
         'last_data_key_rotation':now, # kaurna sets this whenever the data key changes
         'deprecated': False # customer sets
         }
-    return get_kaurna_table(region=region).new_item(attrs=attrs)
+    get_kaurna_table(region=region).new_item(attrs=attrs).save()
+    return
 
-# done but untested
+# manually tested
 def load_all_entries(secret_name, secret_version=None, region='us-east-1', attributes_to_get=None):
     table = get_kaurna_table(region=region)
     if secret_version:
@@ -122,68 +126,68 @@ def load_all_entries(secret_name, secret_version=None, region='us-east-1', attri
     else:
         return table.query(hash_key=secret_name, attributes_to_get=attributes_to_get)
 
-# done but untested
+# manually tested
 def rotate_data_key(secret_name, secret_version=None, region='us-east-1'):
     items = load_all_entries(secret_name=secret_name, secret_version=secret_version, region=region)
     for item in items:
-        _reencrypt_item_and_save(item)
+        _reencrypt_item_and_save(item, region=region)
     return
 
-# done but untested
-def _reencrypt_item_and_save(item):
+# manually tested
+def _reencrypt_item_and_save(item, region='us-east-1'):
     # this method takes a DynamoDB item and reencrypts it
     # It uses the 'encryption_context' entry for decryption, but then uses the 'authorized_entities' attribute to re-encrypt
     old_encrypted_secret = item['encrypted_secret']
-    old_encrypted_key = item['encrypted_data_key']
-    old_encryption_context = item['encryption_context']
+    old_encrypted_data_key = item['encrypted_data_key']
+    old_encryption_context = json.loads(item['encryption_context'])
     new_encryption_context = _generate_encryption_context(json.loads(item['authorized_entities']))
     new_data_key = get_data_key(encryption_context=new_encryption_context, region=region)
-    new_encrypted_key = binascii.b2a_base64(new_data_key['CiphertextBlob'])
-    new_encrypted_secret = encrypt_with_key(plaintext=decrypt_with_key(old_encrypted_secret, decrypt_with_kms(old_encrypted_key, old_encryption_context, region=region)['Plaintext']), key=new_data_key['Plaintext'])
-    item['encryption_context'] = new_encryption_context
+    new_encrypted_data_key = binascii.b2a_base64(new_data_key['CiphertextBlob'])
+    new_encrypted_secret = encrypt_with_key(plaintext=decrypt_with_key(old_encrypted_secret, decrypt_with_kms(old_encrypted_data_key, old_encryption_context, region=region)['Plaintext']), key=new_data_key['Plaintext'])
+    item['encryption_context'] = json.dumps(new_encryption_context)
     item['encrypted_secret'] = new_encrypted_secret
     item['encrypted_data_key'] = new_encrypted_data_key
     item['last_data_key_rotation'] = int(time.time())
     item.save()
     return item
 
-# done but untested
+# manually tested
 def update_secret(secret_name, secret_version=None, authorized_entities=None, region='us-east-1'):
     # This method will update the authorized entities for a secret.
     # If no version is specified, it will update all versions of the secret
     items = load_all_entries(secret_name=secret_name, secret_version=secret_version, region=region)
-    for item in item:
-        item['authorized_entities'] = json.dumps[authorized_entities]
-        _reencrypt_item_and_save(item)
+    for item in items:
+        item['authorized_entities'] = json.dumps(authorized_entities)
+        _reencrypt_item_and_save(item, region=region)
     return
 
-# done but untested
+# manually tested
 def delete_secret(secret_name, secret_version=None, region='us-east-1'):
     # This method will delete the specified secret, or all versions of the secret if version is None
     items = load_all_entries(secret_name=secret_name, secret_version=secret_version, region=region)
-    for item in item:
+    for item in items:
         item.delete()
     return
 
-# done but untested
+# manually tested
 def deprecate_secret(secret_name, secret_version=None, region='us-east-1'):
     # This method will mark the specified secret as deprecated, so that kaurna knows that it's old and shouldn't be used
     items = load_all_entries(secret_name=secret_name, secret_version=secret_version, region=region)
-    for item in item:
+    for item in items:
         item['deprecated'] = True
         item.save()
     return
 
-# done but untested
+# manually tested
 def activate_secret(secret_name, secret_version=None, region='us-east-1'):
     # This method will mark the specified secret as NOT deprecated, so that kaurna knows that it can be used
     items = load_all_entries(secret_name=secret_name, secret_version=secret_version, region=region)
-    for item in item:
+    for item in items:
         item['deprecated'] = False
         item.save()
     return
 
-# done but untested
+# manually tested
 def describe_secrets(secret_name=None, secret_version=None, region='us-east-1'):
     # This method will return a variety of non-secret information about a secret
     # If secret_name is provided, only versions of that secret will be described
@@ -193,9 +197,9 @@ def describe_secrets(secret_name=None, secret_version=None, region='us-east-1'):
         raise Exception("If secret_version is provided, secret_name must also be provided.")
     # return format:
     # {"foobar": {1:{"create_date":123456, "last_data_key_rotation":234567, "authorized_entities":"", "deprecated":False}}}
-    descriptions = []
+    descriptions = {}
     items = load_all_entries(secret_name=secret_name, secret_version=secret_version, region=region, attributes_to_get=['secret_name','secret_version','create_date','last_data_key_rotation','authorized_entities','deprecated'])
-    for item in item:
+    for item in items:
         name = item['secret_name']
         version = item['secret_version']
         descriptions[name] = descriptions.get(name, {})
@@ -208,26 +212,26 @@ def describe_secrets(secret_name=None, secret_version=None, region='us-east-1'):
         descriptions[name][version] = description
     return descriptions
 
-# done but untested
+# manually tested
 def get_secret(secret_name, secret_version=None, region='us-east-1'):
-    item = sorted(load_all_entries(secret_name=secret_name, secret_version=secret_version, region=region), key=lambda i: item['secret_version'])[-1]
-    return decrypt_with_key(item['encrypted_secret'], decrypt_with_kms(item['encrypted_data_key'], item['encryption_context'], region=region)['Plaintext'])
+    item = sorted(load_all_entries(secret_name=secret_name, secret_version=secret_version, region=region), key=lambda i: i['secret_version'])[-1]
+    return decrypt_with_key(item['encrypted_secret'], decrypt_with_kms(item['encrypted_data_key'], json.loads(item['encryption_context']), region=region)['Plaintext'])
 
-# done but untested
+# manually tested
 def encrypt_with_key(plaintext, key, iv=None):
     return (lambda iv: base64.b64encode(iv + AES.new(key, AES.MODE_CBC, iv).encrypt(pad(plaintext))))(iv if iv else Random.new().read(AES.block_size))
 
-# done but untested
+# manually tested
 def decrypt_with_key(ciphertext, key):
     return unpad(AES.new(key, AES.MODE_CBC, base64.b64decode(ciphertext)[:16]).decrypt(base64.b64decode(ciphertext)[16:]))
 
-# done but untested
+# manually tested
 def encrypt_with_kms(plaintext, key_id='alias/kaurna', encryption_context=None, grant_tokens=None, region='us-east-1'):
     # encrypt output:
     # {u'KeyId': u'arn:aws:kms:us-east-1:000000000000:key/1234abcd-12ab-12ab-12ab-123456abcdef', u'CiphertextBlob': '<binary blob>'}
     return binascii.b2a_base64(boto.kms.conenct_to_region(region_name=region).encrypt(key_id=key_id, plaintext=plaintext, encryption_context=encryption_context, grant_tokens=grant_tokens)['CiphertextBlob'])
 
-# done but untested
+# manually tested
 def decrypt_with_kms(ciphertext_blob, encryption_context=None, grant_tokens=None, region='us-east-1'):
     # decrypt output:
     # {'Plaintext': '<binary blob>', 'KeyId': 'arn:aws:kms:us-east-1:000000000000:key/1234abcd-12ab-12ab-12ab-123456abcdef'}
