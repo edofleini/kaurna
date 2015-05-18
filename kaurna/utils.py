@@ -20,7 +20,7 @@ pad = lambda s: s + (BS - len(s) % BS) * chr(BS - len(s) % BS)
 unpad = lambda s: s[:-ord(s[len(s)-1:])]
 
 # manually tested
-def get_kaurna_table(create_if_missing=True, region='us-east-1', read_throughput=1, write_throughput=1):
+def get_kaurna_table(create_if_missing=True, region='us-east-1', read_throughput=1, write_throughput=1, **kwargs):
     # declared schema:
     # hash: secret_name
     # range: secret_version
@@ -51,7 +51,7 @@ def get_kaurna_table(create_if_missing=True, region='us-east-1', read_throughput
             raise e
 
 # manually tested
-def create_kaurna_key(region='us-east-1'):
+def create_kaurna_key(region='us-east-1', **kwargs):
     # This method will create the kaurna KMS master key if necessary
     kms = boto.kms.connect_to_region(region_name=region)
     # list_aliases response:
@@ -85,7 +85,7 @@ def _generate_encryption_context(authorized_entities):
     return encryption_context
 
 # tested manually
-def store_secret(secret_name, secret, secret_version=None, authorized_entities=None, region='us-east-1'):
+def store_secret(secret_name, secret, secret_version=None, authorized_entities=None, region='us-east-1', **kwargs):
     # This method will store the key in DynamoDB
     # If version is specified, it'll be stored as that version, or an error will be thrown if that version exists
     # if the version isn't specified, it'll be stored as version 1 if the entry doesn't already exist and version N+1 if it does, where N is the greatest existing version
@@ -93,7 +93,7 @@ def store_secret(secret_name, secret, secret_version=None, authorized_entities=N
     if secret_version:
         for item in items:
             # if there's anything here, we want to fail because the specified secret/version already exists
-            raise Exception("To update an existing secret/version, please use update_secret, or use delete_secret to delete the secret/version first.")
+            raise Exception("To update an existing secret/version, please use update_secrets, or use delete_secret to delete the secret/version first.")
     else:
         versions = [item['secret_version'] for item in items]
         secret_version = 1 + max(versions + [0])
@@ -119,15 +119,17 @@ def store_secret(secret_name, secret, secret_version=None, authorized_entities=N
     return
 
 # manually tested
-def load_all_entries(secret_name, secret_version=None, region='us-east-1', attributes_to_get=None):
+def load_all_entries(secret_name=None, secret_version=None, region='us-east-1', attributes_to_get=None):
     table = get_kaurna_table(region=region)
     if secret_version:
         return table.query(hash_key=secret_name, range_key_condition=EQ(int(secret_version)), attributes_to_get=attributes_to_get)
-    else:
+    elif secret_name:
         return table.query(hash_key=secret_name, attributes_to_get=attributes_to_get)
+    else:
+        return table.scan(attributes_to_get=attributes_to_get)
 
 # manually tested
-def rotate_data_key(secret_name, secret_version=None, region='us-east-1'):
+def rotate_data_keys(secret_name=None, secret_version=None, region='us-east-1', **kwargs):
     items = load_all_entries(secret_name=secret_name, secret_version=secret_version, region=region)
     for item in items:
         _reencrypt_item_and_save(item, region=region)
@@ -152,7 +154,7 @@ def _reencrypt_item_and_save(item, region='us-east-1'):
     return item
 
 # manually tested
-def update_secret(secret_name, secret_version=None, authorized_entities=None, region='us-east-1'):
+def update_secrets(secret_name, secret_version=None, authorized_entities=None, region='us-east-1', **kwargs):
     # This method will update the authorized entities for a secret.
     # If no version is specified, it will update all versions of the secret
     items = load_all_entries(secret_name=secret_name, secret_version=secret_version, region=region)
@@ -162,7 +164,7 @@ def update_secret(secret_name, secret_version=None, authorized_entities=None, re
     return
 
 # manually tested
-def delete_secret(secret_name, secret_version=None, region='us-east-1'):
+def delete_secret(secret_name, secret_version=None, region='us-east-1', **kwargs):
     # This method will delete the specified secret, or all versions of the secret if version is None
     items = load_all_entries(secret_name=secret_name, secret_version=secret_version, region=region)
     for item in items:
@@ -170,7 +172,7 @@ def delete_secret(secret_name, secret_version=None, region='us-east-1'):
     return
 
 # manually tested
-def deprecate_secret(secret_name, secret_version=None, region='us-east-1'):
+def deprecate_secrets(secret_name=None, secret_version=None, region='us-east-1', **kwargs):
     # This method will mark the specified secret as deprecated, so that kaurna knows that it's old and shouldn't be used
     items = load_all_entries(secret_name=secret_name, secret_version=secret_version, region=region)
     for item in items:
@@ -179,7 +181,7 @@ def deprecate_secret(secret_name, secret_version=None, region='us-east-1'):
     return
 
 # manually tested
-def activate_secret(secret_name, secret_version=None, region='us-east-1'):
+def activate_secrets(secret_name=None, secret_version=None, region='us-east-1', **kwargs):
     # This method will mark the specified secret as NOT deprecated, so that kaurna knows that it can be used
     items = load_all_entries(secret_name=secret_name, secret_version=secret_version, region=region)
     for item in items:
@@ -188,7 +190,7 @@ def activate_secret(secret_name, secret_version=None, region='us-east-1'):
     return
 
 # manually tested
-def describe_secrets(secret_name=None, secret_version=None, region='us-east-1'):
+def describe_secrets(secret_name=None, secret_version=None, region='us-east-1', **kwargs):
     # This method will return a variety of non-secret information about a secret
     # If secret_name is provided, only versions of that secret will be described
     # if secret_name and secret_version are both provided, only that secret/version will be described
@@ -213,7 +215,7 @@ def describe_secrets(secret_name=None, secret_version=None, region='us-east-1'):
     return descriptions
 
 # manually tested
-def get_secret(secret_name, secret_version=None, region='us-east-1'):
+def get_secret(secret_name, secret_version=None, region='us-east-1', **kwargs):
     item = sorted(load_all_entries(secret_name=secret_name, secret_version=secret_version, region=region), key=lambda i: i['secret_version'])[-1]
     return decrypt_with_key(item['encrypted_secret'], decrypt_with_kms(item['encrypted_data_key'], json.loads(item['encryption_context']), region=region)['Plaintext'])
 

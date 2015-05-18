@@ -1,6 +1,7 @@
 #!/usr/bin/env python
 
-# Not yet written, obviously, but this will be a CLI for interacting with kaurna
+import kaurna.cli
 
-print('Stub reminder script.')
-exit(1)
+cli = kaurna.cli.CLIDispatcher()
+
+cli.do_stuff()
