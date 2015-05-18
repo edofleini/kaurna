@@ -45,9 +45,15 @@ class CLIDispatcher:
         }
     
     def list_secrets(self, **kwargs):
-        print 'list_secrets called, but not yet fully implemented'
         secrets = kaurna.describe_secrets(secret_name=kwargs['secret_name'], secret_version=kwargs['secret_version'], region=kwargs['region'])
-        print secrets
+        for secret in secrets.keys():
+            print('Secret name: {0}'.format(secret))
+            for version in secrets[secret].keys():
+                print('  Version: {0}'.format(version))
+                print('    Authorized entities:    {0}'.format(', '.join(secrets[secret][version]['authorized_entities'])))
+                print('    Deprecated:             {0}'.format('Yes' if secrets[secret][version]['deprecated'] else 'No'))
+                print('    Created:                {0}'.format(secrets[secret][version]['create_date']))
+                print('    Last data key rotation: {0}'.format(secrets[secret][version]['last_data_key_rotation']))
     
     def rotate_keys(self, **kwargs):
         kaurna.rotate_data_keys(**kwargs)
