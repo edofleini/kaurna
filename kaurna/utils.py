@@ -79,6 +79,8 @@ def get_data_key(encryption_context=None, region='us-east-1'):
 
 # manually tested
 def _generate_encryption_context(authorized_entities):
+    if not authorized_entities:
+        return None
     encryption_context = {}
     for entity in authorized_entities:
         encryption_context[entity] = 'kaurna'
@@ -89,11 +91,14 @@ def store_secret(secret_name, secret, secret_version=None, authorized_entities=N
     # This method will store the key in DynamoDB
     # If version is specified, it'll be stored as that version, or an error will be thrown if that version exists
     # if the version isn't specified, it'll be stored as version 1 if the entry doesn't already exist and version N+1 if it does, where N is the greatest existing version
+    if not secret_name or not secret:
+        raise Exception('Must provide both secret_name and the secret itself.')
+
     items = load_all_entries(secret_name=secret_name, secret_version=secret_version, region=region, attributes_to_get=['secret_name','secret_version'])
     if secret_version:
         for item in items:
             # if there's anything here, we want to fail because the specified secret/version already exists
-            raise Exception("To update an existing secret/version, please use update_secrets, or use delete_secret to delete the secret/version first.")
+            raise Exception('To update an existing secret/version, please use update_secrets, or use delete_secret to delete the secret/version first.')
     else:
         versions = [item['secret_version'] for item in items]
         secret_version = 1 + max(versions + [0])
@@ -119,7 +124,7 @@ def store_secret(secret_name, secret, secret_version=None, authorized_entities=N
     return
 
 # manually tested
-def load_all_entries(secret_name=None, secret_version=None, region='us-east-1', attributes_to_get=None):
+def load_all_entries(secret_name=None, secret_version=None, region='us-east-1', attributes_to_get=None, **kwargs):
     table = get_kaurna_table(region=region)
     if secret_version:
         return table.query(hash_key=secret_name, range_key_condition=EQ(int(secret_version)), attributes_to_get=attributes_to_get)
@@ -164,11 +169,18 @@ def update_secrets(secret_name, secret_version=None, authorized_entities=None, r
     return
 
 # manually tested
-def delete_secret(secret_name, secret_version=None, region='us-east-1', **kwargs):
+def erase_secret(secret_name, secret_version=None, region='us-east-1', **kwargs):
     # This method will delete the specified secret, or all versions of the secret if version is None
     items = load_all_entries(secret_name=secret_name, secret_version=secret_version, region=region)
     for item in items:
         item.delete()
+    return
+
+# manually tested
+def erase_all_the_things(region='us-east-1', seriously=False, **kwargs):
+    # This method will delete the kaurna DynamoDB table.
+    if seriously:
+        get_kaurna_table(region=region).delete()
     return
 
 # manually tested

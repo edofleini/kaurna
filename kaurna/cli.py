@@ -62,9 +62,21 @@ class CLIDispatcher:
         kaurna.store_secret(**kwargs)
     
     def erase_secret(self, **kwargs):
-        print 'erase_secret called, but not yet implemented'
-        # need to add safety checks and prompt
-        exit(1)
+        if not kwargs['secret_name']:
+            print('Must provide secret_name.')
+            exit(1)
+        print('About to delete the following secrets:')
+        secrets = kaurna.load_all_entries(attributes_to_get=['secret_name','secret_version'], **kwargs)
+        for secret in sorted(secrets, key=lambda s: '{0}/{1}'.format(s['secret_name'], s['secret_version'])):
+            print('Name: {0}, version {1}'.format(secret['secret_name'], secret['secret_version']))
+        if kwargs['force']:
+            print('--force provided.  Skipping prompt.')
+        else:
+            response = raw_input('Y/N? ')
+            if response.strip().lower() not in ['y','yes']:
+                print('Aborted.')
+                exit(1)
+        kaurna.erase_secret(**kwargs)
     
     def deprecate_secrets(self, **kwargs):
         kaurna.deprecate_secrets(**kwargs)
@@ -80,13 +92,23 @@ class CLIDispatcher:
         exit(1)
     
     def erase_all_the_things(self, **kwargs):
-        print 'erase_all_the_things called, but not yet implemented'
-        print kwargs
-        # need to add all the safety checks
+        seriously=False
+        print('YOU ARE ABOUT TO DELETE THE KAURNA DYNAMODB TABLE.  THIS WILL DELETE EVERYTHING.')
+        print('Are you really sure you want to do this?')
+        response = raw_input('Y/N? ')
+        if response.strip().lower() not in ['y','yes']:
+            print('Aborted.')
+            exit(1)
+        response2 = raw_input('Seriously? Y/N ')
+        if response2.strip().lower() not in ['y','yes']:
+            print('Aborted.')
+            exit(1)
+        else:
+            seriously=True
+        kaurna.erase_all_the_things(seriously=seriously, **kwargs)
         exit(1)
 
     def get_argument_parser(self):
-        
         parser = argparse.ArgumentParser(description='Interact with kaurna from the command line.')
         operations = parser.add_mutually_exclusive_group()
 
@@ -116,7 +138,11 @@ class CLIDispatcher:
                 operation = operation if not pair[1] else pair[0]
             else:
                 argdict[pair[0]] = pair[1]
-        getattr(self, operation)(**argdict)
+        try:
+            getattr(self, operation)(**argdict)
+        except Exception as e:
+            print e.message
+            exit(1)
 
     def do_stuff(self):
         parser = self.get_argument_parser()
