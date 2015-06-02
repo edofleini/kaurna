@@ -1,23 +1,56 @@
 #!/usr/bin/env python
 
-from unittest import TestCase
+from boto.exception import DynamoDBResponseError
 from kaurna.utils import *
+from mock import call, MagicMock, Mock, patch
+from nose.tools import assert_equals
+from unittest import TestCase
 
 # http://www.openp2p.com/pub/a/python/2004/12/02/tdd_pyunit.html
 
 class KaurnaUtilsTests(TestCase):
 
     def setUp(self):
-        pass
+        self.mock_kms = MagicMock()
+        patch('kaurna.utils.boto.kms.connect_to_region', Mock(return_value=self.mock_kms)).start()
+
+        self.mock_ddb = MagicMock()
+        patch('kaurna.utils.boto.dynamodb.connect_to_region', Mock(return_value=self.mock_ddb)).start()
 
     def tearDown(self):
-        pass
+        patch.stopall()
 
     def test_GIVEN_kaurna_table_doesnt_exist_WHEN_get_kaurna_table_called_THEN_table_created_and_returned(self):
-        self.fail()
+        # GIVEN - set up mocks
+        self.mock_ddb.get_table.side_effect = [DynamoDBResponseError('Foo','Bar')]
+
+        mock_table = MagicMock()
+        self.mock_ddb.create_table.return_value = mock_table
+
+        mock_schema = MagicMock()
+        self.mock_ddb.create_schema.return_value = mock_schema
+
+        # WHEN - perform the actions under test
+        returned_table = get_kaurna_table(region='us-east-1', read_throughput=5, write_throughput=2)
+
+        # THEN - verify the expected results were observed
+        assert_equals(mock_table, returned_table)
+        assert_equals(
+            self.mock_ddb.create_table.call_args_list,
+            [call(name='kaurna', schema=mock_schema, read_units=5, write_units=2)]
+            )
 
     def test_GIVEN_kaurna_table_exists_WHEN_get_kaurna_table_called_THEN_table_returned(self):
-        self.fail()
+        # GIVEN - set up mocks
+        mock_table = MagicMock()
+        self.mock_ddb.get_table.return_value = mock_table
+
+        # WHEN - perform the actions under test
+        returned_table = get_kaurna_table(region='us-east-1', read_throughput=5, write_throughput=2)
+
+        # THEN - verify the expected results were observed
+        assert_equals(mock_table, returned_table)
+        assert_equals(self.mock_ddb.create_table.call_args_list, [])
 
     def test_GIVEN_kaurna_key_doesnt_exist_WHEN_create_kaurna_key_called_THEN_kaurna_key_created(self):
         self.fail()
