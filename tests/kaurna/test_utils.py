@@ -1,14 +1,17 @@
 #!/usr/bin/env python
 
-import unittest
-#from unittest.mock import MagicMock, patch # this line seems like it was breaking stuff
-#import kaurna.utils as kaurna
+from unittest import TestCase
+from kaurna.utils import *
 
 # http://www.openp2p.com/pub/a/python/2004/12/02/tdd_pyunit.html
-#@patch('boto')
-#def test(boto_mock):
 
-class KaurnaUtilsTests(unittest.TestCase):
+class KaurnaUtilsTests(TestCase):
+
+    def setUp(self):
+        pass
+
+    def tearDown(self):
+        pass
 
     def test_GIVEN_kaurna_table_doesnt_exist_WHEN_get_kaurna_table_called_THEN_table_created_and_returned(self):
         self.fail()
@@ -113,9 +116,3 @@ class KaurnaUtilsTests(unittest.TestCase):
 
     def test_WHEN_decrypt_with_kms_called_THEN_proper_kms_call_made(self):
         self.fail()
-
-def main():
-    unittest.main()
-
-if __name__ == '__main__':
-    main()
