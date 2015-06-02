@@ -1,6 +1,7 @@
 #!/usr/bin/env python
 
-from distutils.core import setup
+#from distutils.core import setup
+from setuptools import setup, find_packages
 
 setup(name='kaurna',
       version='0.1.0',
@@ -11,4 +12,5 @@ setup(name='kaurna',
       packages=['kaurna'],
       package_dir={'kaurna': 'src/kaurna'},
       scripts=['scripts/kaurna'],
+      test_suite='tst',
      )

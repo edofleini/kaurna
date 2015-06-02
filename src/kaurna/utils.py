@@ -70,6 +70,7 @@ def create_kaurna_key(region='us-east-1', **kwargs):
 
 # manually tested
 def get_data_key(encryption_context=None, region='us-east-1'):
+    create_kaurna_key(region=region)
     # This method will generate a new data key
     kms = boto.kms.connect_to_region(region_name=region)
     # generate_data_key output:
@@ -126,6 +127,8 @@ def store_secret(secret_name, secret, secret_version=None, authorized_entities=N
 # manually tested
 def load_all_entries(secret_name=None, secret_version=None, region='us-east-1', attributes_to_get=None, **kwargs):
     table = get_kaurna_table(region=region)
+    if secret_version and not secret_name:
+        raise Exception('If secret_version is provided, you must also provide secret_name.')
     if secret_version:
         return table.query(hash_key=secret_name, range_key_condition=EQ(int(secret_version)), attributes_to_get=attributes_to_get)
     elif secret_name:
@@ -171,6 +174,8 @@ def update_secrets(secret_name, secret_version=None, authorized_entities=None, r
 # manually tested
 def erase_secret(secret_name, secret_version=None, region='us-east-1', **kwargs):
     # This method will delete the specified secret, or all versions of the secret if version is None
+    if not secret_name:
+        raise Exception('Must provide secret_name.')
     items = load_all_entries(secret_name=secret_name, secret_version=secret_version, region=region)
     for item in items:
         item.delete()
@@ -206,9 +211,7 @@ def describe_secrets(secret_name=None, secret_version=None, region='us-east-1', 
     # This method will return a variety of non-secret information about a secret
     # If secret_name is provided, only versions of that secret will be described
     # if secret_name and secret_version are both provided, only that secret/version will be described
-    # if secret_version is provided but secret_name isn't, an error will be thrown
-    if secret_version and not secret_name:
-        raise Exception("If secret_version is provided, secret_name must also be provided.")
+    # if secret_version is provided but secret_name isn't, an error will be thrown (by load_all_entries)
     # return format:
     # {"foobar": {1:{"create_date":123456, "last_data_key_rotation":234567, "authorized_entities":"", "deprecated":False}}}
     descriptions = {}
@@ -228,7 +231,12 @@ def describe_secrets(secret_name=None, secret_version=None, region='us-east-1', 
 
 # manually tested
 def get_secret(secret_name, secret_version=None, region='us-east-1', **kwargs):
-    item = sorted(load_all_entries(secret_name=secret_name, secret_version=secret_version, region=region), key=lambda i: i['secret_version'])[-1]
+    if not secret_name:
+        raise Exception('Must provide secret_name.')
+    items = sorted([secret for secret in load_all_entries(secret_name=secret_name, secret_version=secret_version, region=region) if not secret['deprecated']], key=lambda i: i['secret_version'])
+    if len(items) == 0:
+        raise Exception('No active versions of secret \'{0}\' found.'.format(secret_name))
+    item = items[-1]
     return decrypt_with_key(item['encrypted_secret'], decrypt_with_kms(item['encrypted_data_key'], json.loads(item['encryption_context']), region=region)['Plaintext'])
 
 # manually tested
