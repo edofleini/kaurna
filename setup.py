@@ -1,7 +1,6 @@
 #!/usr/bin/env python
 
-#from distutils.core import setup
-from setuptools import setup, find_packages
+from setuptools import setup
 
 setup(name='kaurna',
       version='0.1.0',
@@ -9,7 +8,7 @@ setup(name='kaurna',
       author='Quinn Raskin',
       author_email='quinn@edofleini.com',
       url='www.edofleini.com',
-      packages=find_packages('src'),#['kaurna'],
+      packages=['kaurna'],
       package_dir={'kaurna': 'kaurna'},
       scripts=['scripts/kaurna'],
       test_suite='tests',
