@@ -20,7 +20,7 @@ pad = lambda s: s + (BS - len(s) % BS) * chr(BS - len(s) % BS)
 unpad = lambda s: s[:-ord(s[len(s)-1:])]
 
 # manually tested
-def get_kaurna_table(create_if_missing=True, region='us-east-1', read_throughput=1, write_throughput=1, **kwargs):
+def get_kaurna_table(region='us-east-1', read_throughput=1, write_throughput=1, **kwargs):
     # declared schema:
     # hash: secret_name
     # range: secret_version
@@ -38,17 +38,14 @@ def get_kaurna_table(create_if_missing=True, region='us-east-1', read_throughput
         return ddb.get_table(name='kaurna')
         # If the table doesn't exist, an error will get thrown
     except DynamoDBResponseError as e:
-        if create_if_missing:
-            schema = ddb.create_schema(
-                hash_key_name='secret_name',
-                hash_key_proto_value=str,
-                range_key_name='secret_version',
-                range_key_proto_value=int
+        schema = ddb.create_schema(
+            hash_key_name='secret_name',
+            hash_key_proto_value=str,
+            range_key_name='secret_version',
+            range_key_proto_value=int
                 )
-            # create_table output is a DDB Table object
-            return ddb.create_table(name='kaurna', schema=schema, read_units=read_throughput, write_units=write_throughput)
-        else:
-            raise e
+        # create_table output is a DDB Table object
+        return ddb.create_table(name='kaurna', schema=schema, read_units=read_throughput, write_units=write_throughput)
 
 # manually tested
 def create_kaurna_key(region='us-east-1', **kwargs):
