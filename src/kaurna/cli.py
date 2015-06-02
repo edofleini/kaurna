@@ -78,9 +78,25 @@ class CLIDispatcher:
                 exit(1)
         kaurna.erase_secret(**kwargs)
     
+    # hasn't yet been manually tested in its latest form
     def deprecate_secrets(self, **kwargs):
-        kaurna.deprecate_secrets(**kwargs)
-    
+        secrets = kaurna.load_all_entries(attributes_to_get=['secret_name','secret_version', 'deprecated'], **kwargs)
+        sorted_secrets = sorted([secret in secrets if not secret['deprecated']], key=lambda s: '{0}/{1}'.format(s['secret_name'], s['secret_version']))
+        if sorted_secrets:
+            print('About to deprecate the following secrets:')
+            for secret in :
+                print('Name: {0}, version {1}'.format(secret['secret_name'], secret['secret_version']))
+            if kwargs['force']:
+                print('--force provided.  Skipping prompt.')
+            else:
+                response = raw_input('Y/N? ')
+                if response.strip().lower() not in ['y','yes']:
+                    print('Aborted.')
+                    exit(1)
+            kaurna.deprecate_secrets(**kwargs)
+        else:
+            print('No active secrets matching those parameters found.')
+
     def activate_secrets(self, **kwargs):
         kaurna.activate_secrets(**kwargs)
     
