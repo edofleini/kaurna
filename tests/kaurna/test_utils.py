@@ -50,13 +50,54 @@ class KaurnaUtilsTests(TestCase):
 
         # THEN - verify the expected results were observed
         assert_equals(mock_table, returned_table)
-        assert_equals(self.mock_ddb.create_table.call_args_list, [])
+        assert_equals(
+            self.mock_ddb.create_table.call_args_list,
+            []
+            )
 
     def test_GIVEN_kaurna_key_doesnt_exist_WHEN_create_kaurna_key_called_THEN_kaurna_key_created(self):
-        self.fail()
+        # GIVEN
+        self.mock_kms.list_aliases.return_value = {'Aliases':[
+                {'AliasArn': 'arn:aws:kms:us-east-1:000000000000:alias/aws/ebs', 'AliasName': 'alias/aws/ebs'},
+                {'AliasArn': 'arn:aws:kms:us-east-1:000000000000:alias/aws/redshift', 'AliasName': 'alias/aws/redshift'},
+                {'AliasArn': 'arn:aws:kms:us-east-1:000000000000:alias/aws/s3', 'AliasName': 'alias/aws/s3'},
+                ]}
+        self.mock_kms.create_key.return_value = {'KeyMetadata':{'KeyId':'foobar'}}
+
+        # WHEN
+        create_kaurna_key()
+
+        # THEN
+        assert_equals(
+            self.mock_kms.create_key.call_args_list,
+            [call()]
+            )
+        assert_equals(
+            self.mock_kms.create_alias.call_args_list,
+            [call('alias/kaurna', 'foobar')]
+            )
 
     def test_GIVEN_kaurna_key_exists_WHEN_create_kaurna_key_called_THEN_nothing_happens(self):
-        self.fail()
+        # GIVEN
+        self.mock_kms.list_aliases.return_value = {'Aliases':[
+                {'AliasArn': 'arn:aws:kms:us-east-1:000000000000:alias/aws/ebs', 'AliasName': 'alias/aws/ebs'},
+                {'AliasArn': 'arn:aws:kms:us-east-1:000000000000:alias/aws/redshift', 'AliasName': 'alias/aws/redshift'},
+                {'AliasArn': 'arn:aws:kms:us-east-1:000000000000:alias/aws/s3', 'AliasName': 'alias/aws/s3'},
+                {'AliasArn': 'arn:aws:kms:us-east-1:000000000000:alias/kaurna', 'AliasName': 'alias/kaurna'},
+                ]}
+
+        # WHEN
+        create_kaurna_key()
+
+        # THEN
+        assert_equals(
+            self.mock_kms.create_key.call_args_list,
+            []
+            )
+        assert_equals(
+            self.mock_kms.create_alias.call_args_list,
+            []
+            )
 
     def test_WHEN_get_data_key_called_THEN_kaurna_key_created_and_data_key_generated(self):
         self.fail()
@@ -92,7 +133,7 @@ class KaurnaUtilsTests(TestCase):
 
     def test_GIVEN_no_secret_information_provided_WHEN_load_all_entries_called_THEN_proper_entries_returned(self):
         self.fail()
-    
+
     def test_WHEN_rotate_data_keys_called_THEN_data_keys_rotated(self):
         self.fail()
 
