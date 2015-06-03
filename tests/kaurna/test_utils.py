@@ -2,6 +2,7 @@
 
 from boto.exception import DynamoDBResponseError
 from kaurna.utils import *
+import kaurna.utils # necessary to test _generate_encryption_context
 from mock import call, MagicMock, Mock, patch
 from nose.tools import assert_equals
 from unittest import TestCase
@@ -100,12 +101,40 @@ class KaurnaUtilsTests(TestCase):
             )
 
     def test_WHEN_get_data_key_called_THEN_kaurna_key_created_and_data_key_generated(self):
-        self.fail()
+        # GIVEN
+        expected_data_key = {'Plaintext': '<binary blob>', 'KeyId': 'arn:aws:kms:us-east-1:000000000000:key/1234abcd-12ab-12ab-12ab-123456abcdef', 'CiphertextBlob': '<binary blob>'}
+        self.mock_kms.generate_data_key.return_value = expected_data_key
+
+        encryption_context = {'hafgufa':'kaurna','edofleini':'kaurna'}
+
+        # WHEN
+        actual_data_key = get_data_key(encryption_context=encryption_context)
+
+        # THEN
+        assert_equals(
+            expected_data_key,
+            actual_data_key
+            )
+        assert_equals(
+            self.mock_kms.generate_data_key.call_args_list,
+            [call(key_id='alias/kaurna', encryption_context=encryption_context, key_spec='AES_256')]
+            )
 
     # Don't really need to test; it's an entirely internal method with no network calls.
     # It's covered by other tests, but testing it separately makes it easy to pinpoint if it ever gets broken.
     def test_WHEN__generate_encryption_context_called_THEN_proper_encryption_context_generated(self):
-        self.fail()
+        # GIVEN
+        expected_encryption_context = {'hafgufa':'kaurna','edofleini':'kaurna'}
+        authorized_entities = ['hafgufa','edofleini']
+
+        # WHEN
+        actual_encryption_context = kaurna.utils._generate_encryption_context(authorized_entities=authorized_entities)
+
+        # THEN
+        assert_equals(
+            expected_encryption_context,
+            actual_encryption_context
+            )
 
     def test_GIVEN_secret_not_provided_WHEN_store_secret_called_THEN_error_thrown(self):
         self.fail()

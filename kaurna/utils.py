@@ -65,7 +65,7 @@ def create_kaurna_key(region='us-east-1', **kwargs):
         kms.create_alias('alias/kaurna', response['KeyMetadata']['KeyId'])
         return
 
-# manually tested
+# manually and unit tested
 def get_data_key(encryption_context=None, region='us-east-1'):
     # This method will generate a new data key
     kms = boto.kms.connect_to_region(region_name=region)
@@ -74,7 +74,7 @@ def get_data_key(encryption_context=None, region='us-east-1'):
     data_key = kms.generate_data_key(key_id='alias/kaurna', encryption_context=encryption_context, key_spec='AES_256')
     return data_key
 
-# manually tested
+# manually and unit tested
 def _generate_encryption_context(authorized_entities):
     if not authorized_entities:
         return None
