@@ -6,6 +6,10 @@ import kaurna.utils as kaurna
 class CLIDispatcher:
 
     operation_info={
+        'create_kaurna_key':{
+            'help':'Create the kaurna KMS key and key alias.  This must be called before kaurna can be used.  Because creating KMS keys is a non-reversible operation, this must be done manually.',
+            'initial':'c'
+            },
         'list_secrets':{
             'help':'List the stored secrets.  If you provide --secret-name, only versions of that secret will be shown.  If you provide --secret-name and --secret-version, only the one secret/version will be shown.',
             'initial':'l'
@@ -61,6 +65,20 @@ class CLIDispatcher:
     def store_secret(self, **kwargs):
         kaurna.store_secret(**kwargs)
     
+    def create_kaurna_key(self, **kwargs):
+        print('About to create the kaurna KMS key.')
+        if kwargs['force']:
+            print('--force provided.  Skipping prompt.')
+        else:
+            response = raw_input('Proceed? Y/N ')
+            if response.strip().lower() not in ['y','yes']:
+                print('Aborted.')
+                exit(1)
+        if kaurna.create_kaurna_key(**kwargs):
+            print('KMS key with alias \'kaurna\' created.')
+        else:
+            print('KMS key with alias \'kaurna\' already exists.  No need to create.')
+
     def erase_secret(self, **kwargs):
         if not kwargs['secret_name']:
             print('Must provide secret_name.')

@@ -19,7 +19,7 @@ pad = lambda s: s + (BS - len(s) % BS) * chr(BS - len(s) % BS)
 # this removes the last X bytes of s, where X is the numeric value of the last byte
 unpad = lambda s: s[:-ord(s[len(s)-1:])]
 
-# manually tested
+# manually and unit tested
 def get_kaurna_table(region='us-east-1', read_throughput=1, write_throughput=1, **kwargs):
     # declared schema:
     # hash: secret_name
@@ -47,7 +47,7 @@ def get_kaurna_table(region='us-east-1', read_throughput=1, write_throughput=1, 
         # create_table output is a DDB Table object
         return ddb.create_table(name='kaurna', schema=schema, read_units=read_throughput, write_units=write_throughput)
 
-# manually tested
+# manually and unit tested
 def create_kaurna_key(region='us-east-1', **kwargs):
     # This method will create the kaurna KMS master key if necessary
     kms = boto.kms.connect_to_region(region_name=region)
@@ -67,7 +67,6 @@ def create_kaurna_key(region='us-east-1', **kwargs):
 
 # manually tested
 def get_data_key(encryption_context=None, region='us-east-1'):
-    create_kaurna_key(region=region)
     # This method will generate a new data key
     kms = boto.kms.connect_to_region(region_name=region)
     # generate_data_key output:
