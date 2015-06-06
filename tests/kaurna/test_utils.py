@@ -512,7 +512,7 @@ class KaurnaUtilsTests(TestCase):
     def test_WHEN__reencrypt_item_and_save_called_THEN_item_reencrypted_and_saved(self):
         self.fail()
 
-    def test_GIVEN_secret_version_not_provided_WHEN_update_secrets_called_THEN_proper_secrets_updated(self):
+    def test_GIVEN_secret_name_but_not_secret_version_provided_WHEN_update_secrets_called_THEN_proper_secrets_updated(self):
         # GIVEN
         secret_name = 'password'
         secret_version = None
@@ -550,7 +550,7 @@ class KaurnaUtilsTests(TestCase):
                 ]
             )
 
-    def test_GIVEN_secret_version_provided_WHEN_update_secrets_called_THEN_proper_secrets_updated(self):
+    def test_GIVEN_secret_name_and_secret_version_provided_WHEN_update_secrets_called_THEN_proper_secrets_updated(self):
         # GIVEN
         secret_name = 'password'
         secret_version = 2
@@ -597,7 +597,7 @@ class KaurnaUtilsTests(TestCase):
         # THEN
         # Exception should get thrown and we should never get here
 
-    def test_GIVEN_secret_version_but_not_secret_name_provided_WHEN_erase_secret_called_THEN_proper_secret_erased(self):
+    def test_GIVEN_secret_name_but_not_secret_version_provided_WHEN_erase_secret_called_THEN_proper_secret_erased(self):
         # GIVEN
         secret_name = 'password'
         secret_version = None
@@ -638,11 +638,10 @@ class KaurnaUtilsTests(TestCase):
                 ]
             )
 
-    def test_GIVEN_secret_version_and_secret_name_provided_WHEN_erase_secret_called_THEN_proper_secret_erased(self):
+    def test_GIVEN_secret_name_and_secret_version_provided_WHEN_erase_secret_called_THEN_proper_secret_erased(self):
         # GIVEN
         secret_name = 'password'
         secret_version = 2
-        authorized_entities = ['Sterling Archer','Cyril Figgis']
 
         item = MagicMock()
         mock_load_all_entries = MagicMock(return_value = [item])
@@ -704,13 +703,124 @@ class KaurnaUtilsTests(TestCase):
             [call()]
             )
 
-    def test_WHEN_deprecate_secrets_called_THEN_proper_secrets_deprecated(self):
+    def test_GIVEN_secret_name_but_not_secret_version_provided_WHEN_deprecate_secrets_called_THEN_proper_secrets_deprecated(self):
+        # GIVEN
+        secret_name = 'password'
+        secret_version = None
+
+        item1 = MagicMock()
+        item2 = MagicMock()
+
+        mock_load_all_entries = MagicMock(return_value = [item1, item2])
+        patch(
+            'kaurna.utils.load_all_entries',
+            mock_load_all_entries
+            ).start()
+
+        # WHEN
+        deprecate_secrets(secret_name=secret_name, secret_version=secret_version, region=self.region)
+
+        # THEN
+        assert_equals(
+            mock_load_all_entries.call_args_list,
+            [call(secret_name=secret_name, secret_version=secret_version, region=self.region)]
+            )
+        assert_equals(
+            item1.mock_calls,
+            [call.__setitem__('deprecated', True), call.save()]
+            )
+        assert_equals(
+            item2.mock_calls,
+            [call.__setitem__('deprecated', True), call.save()]
+            )
+
+    def test_GIVEN_secret_name_and_secret_version_provided_WHEN_deprecate_secrets_called_THEN_proper_secrets_deprecated(self):
+        # GIVEN
+        secret_name = 'password'
+        secret_version = 2
+
+        item = MagicMock()
+
+        mock_load_all_entries = MagicMock(return_value = [item])
+        patch(
+            'kaurna.utils.load_all_entries',
+            mock_load_all_entries
+            ).start()
+
+        # WHEN
+        deprecate_secrets(secret_name=secret_name, secret_version=secret_version, region=self.region)
+
+        # THEN
+        assert_equals(
+            mock_load_all_entries.call_args_list,
+            [call(secret_name=secret_name, secret_version=secret_version, region=self.region)]
+            )
+        assert_equals(
+            item.mock_calls,
+            [call.__setitem__('deprecated', True), call.save()]
+            )
+
+    def test_GIVEN_secret_name_but_not_secret_version_provided_WHEN_activate_secrets_called_THEN_proper_secrets_activated(self):
+        # GIVEN
+        secret_name = 'password'
+        secret_version = None
+
+        item1 = MagicMock()
+        item2 = MagicMock()
+
+        mock_load_all_entries = MagicMock(return_value = [item1, item2])
+        patch(
+            'kaurna.utils.load_all_entries',
+            mock_load_all_entries
+            ).start()
+
+        # WHEN
+        activate_secrets(secret_name=secret_name, secret_version=secret_version, region=self.region)
+
+        # THEN
+        assert_equals(
+            mock_load_all_entries.call_args_list,
+            [call(secret_name=secret_name, secret_version=secret_version, region=self.region)]
+            )
+        assert_equals(
+            item1.mock_calls,
+            [call.__setitem__('deprecated', False), call.save()]
+            )
+        assert_equals(
+            item2.mock_calls,
+            [call.__setitem__('deprecated', False), call.save()]
+            )
+
+    def test_GIVEN_secret_name_and_secret_version_provided_WHEN_activate_secrets_called_THEN_proper_secrets_activated(self):
+        # GIVEN
+        secret_name = 'password'
+        secret_version = 2
+
+        item = MagicMock()
+
+        mock_load_all_entries = MagicMock(return_value = [item])
+        patch(
+            'kaurna.utils.load_all_entries',
+            mock_load_all_entries
+            ).start()
+
+        # WHEN
+        activate_secrets(secret_name=secret_name, secret_version=secret_version, region=self.region)
+
+        # THEN
+        assert_equals(
+            mock_load_all_entries.call_args_list,
+            [call(secret_name=secret_name, secret_version=secret_version, region=self.region)]
+            )
+        assert_equals(
+            item.mock_calls,
+            [call.__setitem__('deprecated', False), call.save()]
+            )
+
+    def test_GIVEN_secret_name_but_not_secret_version_provided_WHEN_describe_secrets_called_THEN_proper_descriptions_returned(self):
         self.fail()
 
-    def test_WHEN_activate_secrets_called_THEN_proper_secrets_activated(self):
-        self.fail()
-
-    def test_WHEN_describe_secrets_called_THEN_proper_descriptions_returned(self):
+    def test_GIVEN_secret_name_and_secret_version_provided_WHEN_describe_secrets_called_THEN_proper_descriptions_returned(self):
         self.fail()
 
     @raises(Exception)
