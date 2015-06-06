@@ -1,5 +1,6 @@
 #!/usr/bin/env python
 
+from boto.dynamodb.condition import EQ
 from boto.exception import DynamoDBResponseError
 from kaurna.utils import *
 import kaurna.utils # necessary to test _generate_encryption_context
@@ -301,14 +302,87 @@ class KaurnaUtilsTests(TestCase):
         # THEN
         # Exception should get thrown and we should never get here
 
-    def test_GIVEN_secret_version_provided_WHEN_load_all_entries_called_THEN_proper_entries_returned(self):
-        self.fail()
+    def test_GIVEN_secret_name_and_secret_version_provided_WHEN_load_all_entries_called_THEN_proper_dynamodb_call_made(self):
+        # GIVEN
+        secret_name = 'password'
+        secret_version = 2
+        attributes_to_get = ['secret_name', 'secret_version']
 
-    def test_GIVEN_secret_name_but_not_secret_version_provided_WHEN_load_all_entries_called_THEN_proper_entries_returned(self):
-        self.fail()
+        mock_table = MagicMock()
+        self.mock_ddb.get_table.return_value = mock_table
+        expected_output = [
+            {'secret_name':secret_name,'secret_version':secret_version}
+            ]
+        mock_table.query.return_value = expected_output
 
-    def test_GIVEN_no_secret_information_provided_WHEN_load_all_entries_called_THEN_proper_entries_returned(self):
-        self.fail()
+        # WHEN
+        actual_output = load_all_entries(secret_name=secret_name, secret_version=secret_version, attributes_to_get=attributes_to_get)
+
+        # THEN
+        assert_equals(
+            expected_output,
+            actual_output
+            )
+        assert_equals(
+            mock_table.query.call_args_list,
+            [call(hash_key=secret_name, range_key_condition=EQ(int(secret_version)), attributes_to_get=attributes_to_get)]
+            )
+
+    def test_GIVEN_secret_name_but_not_secret_version_provided_WHEN_load_all_entries_called_THEN_proper_dynamodb_call_made(self):
+        # GIVEN
+        secret_name = 'password'
+        secret_version = None
+        attributes_to_get = ['secret_name', 'secret_version']
+
+        mock_table = MagicMock()
+        self.mock_ddb.get_table.return_value = mock_table
+        expected_output = [
+            {'secret_name':secret_name,'secret_version':1},
+            {'secret_name':secret_name,'secret_version':2}
+            ]
+        mock_table.query.return_value = expected_output
+
+        # WHEN
+        actual_output = load_all_entries(secret_name=secret_name, secret_version=secret_version, attributes_to_get=attributes_to_get)
+
+        # THEN
+        assert_equals(
+            expected_output,
+            actual_output
+            )
+        assert_equals(
+            mock_table.query.call_args_list,
+            [call(hash_key=secret_name, attributes_to_get=attributes_to_get)]
+            )
+
+    def test_GIVEN_no_secret_information_provided_WHEN_load_all_entries_called_THEN_proper_dynamodb_call_made(self):
+        # GIVEN
+        secret_name = None
+        secret_version = None
+        attributes_to_get = ['secret_name', 'secret_version']
+
+        mock_table = MagicMock()
+        self.mock_ddb.get_table.return_value = mock_table
+        expected_output = [
+            {'secret_name':'password','secret_version':1},
+            {'secret_name':'password','secret_version':2},
+            {'secret_name':'private_key','secret_version':1},
+            {'secret_name':'private_key','secret_version':2}
+            ]
+        mock_table.scan.return_value = expected_output
+
+        # WHEN
+        actual_output = load_all_entries(secret_name=secret_name, secret_version=secret_version, attributes_to_get=attributes_to_get)
+
+        # THEN
+        assert_equals(
+            expected_output,
+            actual_output
+            )
+        assert_equals(
+            mock_table.scan.call_args_list,
+            [call(attributes_to_get=attributes_to_get)]
+            )
 
     def test_WHEN_rotate_data_keys_called_THEN_data_keys_rotated(self):
         self.fail()
