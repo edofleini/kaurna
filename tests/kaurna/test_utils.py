@@ -877,17 +877,65 @@ class KaurnaUtilsTests(TestCase):
         # THEN
         # Exception should get thrown and we should never get here
 
-    def test_GIVEN_active_version_available_WHEN_get_secret_called_THEN_proper_secret_returned(self):
+    def test_GIVEN_secret_name_but_not_secret_version_provided_WHEN_get_secret_called_THEN_proper_secret_returned(self):
+        self.fail()
+
+    def test_GIVEN_secret_name_and_secret_version_provided_WHEN_get_secret_called_THEN_proper_secret_returned(self):
         self.fail()
 
     def test_GIVEN_iv_provided_WHEN_encrypt_with_key_called_THEN_plaintext_properly_encrypted(self):
-        self.fail()
+        # GIVEN
+        iv = base64.b64decode('kYSYMMqlQaVoUlXwmKUNLQ==')
+        key = base64.b64decode('E/knR0ElllVyrTt3FkrTvI4mwvLdoCTR6mf2KtkAAXg=')
+        plaintext = 'This is a test message.'
+        expected_ciphertext = 'kYSYMMqlQaVoUlXwmKUNLXSY4J8XzrGgkV2iU1DSgM3J+ebbf5ifZE6tRKNZ6X+9'
+
+        # WHEN
+        actual_ciphertext = encrypt_with_key(plaintext=plaintext, key=key, iv=iv)
+
+        # THEN
+        assert_equals(
+            expected_ciphertext,
+            actual_ciphertext
+            )
 
     def test_GIVEN_iv_not_provided_WHEN_encrypt_with_key_called_THEN_plaintext_properly_encrypted(self):
-        self.fail()
+        # GIVEN
+        mock_random = MagicMock()
+        mock_random.read.return_value = base64.b64decode('sPMIV8lM3nHPpSV7DrtD1Q==')
+        patch(
+            'kaurna.utils.Random.new',
+            Mock(return_value=mock_random)
+            ).start()
+
+        iv = None
+        key = base64.b64decode('b638ba+zFUD8LGvnIOBXas1BWDEb90CwYBNbqYh9NeQ=')
+        plaintext = 'This is a test message.'
+        expected_ciphertext = 'sPMIV8lM3nHPpSV7DrtD1XDzeZU8uxaUt5eEeif4U8wfgfeBsHLZntMhNjW74LIW'
+
+        # WHEN
+        actual_ciphertext = encrypt_with_key(plaintext=plaintext, key=key, iv=iv)
+
+        # THEN
+        assert_equals(
+            expected_ciphertext,
+            actual_ciphertext
+            )
 
     def test_WHEN_decrypt_with_key_called_THEN_plaintext_properly_decrypted(self):
-        self.fail()
+        # GIVEN
+        key = base64.b64decode('E/knR0ElllVyrTt3FkrTvI4mwvLdoCTR6mf2KtkAAXg=')
+        ciphertext = 'kYSYMMqlQaVoUlXwmKUNLXSY4J8XzrGgkV2iU1DSgM3J+ebbf5ifZE6tRKNZ6X+9'
+        expected_plaintext = 'This is a test message.'
+
+        # WHEN
+        actual_plaintext = decrypt_with_key(ciphertext=ciphertext, key=key)
+
+        # THEN
+        assert_equals(
+            expected_plaintext,
+            actual_plaintext
+            )
 
     def test_WHEN_encrypt_with_kms_called_THEN_proper_kms_call_made(self):
         self.fail()
