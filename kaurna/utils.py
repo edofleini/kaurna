@@ -107,14 +107,14 @@ def store_secret(secret_name, secret, secret_version=None, authorized_entities=N
     encrypted_secret = encrypt_with_key(plaintext=secret, key=data_key['Plaintext'])
     now = int(time.time()) # we really don't need sub-second accuracy on this, so strip it out to prevent confusion
     attrs = {
-        'secret_name':secret_name, # customer sets
-        'secret_version':int(secret_version), # customer sets
-        'encrypted_secret':encrypted_secret, # customer provides plaintext, then kaurna encrypts
-        'encrypted_data_key':encrypted_data_key, # kaurna gets from kms
-        'encryption_context':encryption_context_string, # kaurna derives from authorized_entities
-        'authorized_entities':json.dumps(authorized_entities), # customer sets
-        'create_date':now, # kaurna sets this at initial creation
-        'last_data_key_rotation':now, # kaurna sets this whenever the data key changes
+        'secret_name': secret_name, # customer sets
+        'secret_version': int(secret_version), # customer sets
+        'encrypted_secret': encrypted_secret, # customer provides plaintext, then kaurna encrypts
+        'encrypted_data_key': encrypted_data_key, # kaurna gets from kms
+        'encryption_context': encryption_context_string, # kaurna derives from authorized_entities
+        'authorized_entities': json.dumps(authorized_entities), # customer sets
+        'create_date': now, # kaurna sets this at initial creation
+        'last_data_key_rotation': now, # kaurna sets this whenever the data key changes
         'deprecated': False # customer sets
         }
     get_kaurna_table(region=region).new_item(attrs=attrs).save()

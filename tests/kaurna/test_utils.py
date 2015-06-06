@@ -4,7 +4,7 @@ from boto.exception import DynamoDBResponseError
 from kaurna.utils import *
 import kaurna.utils # necessary to test _generate_encryption_context
 from mock import call, MagicMock, Mock, patch
-from nose.tools import assert_equals
+from nose.tools import assert_equals, raises
 from unittest import TestCase
 
 # http://www.openp2p.com/pub/a/python/2004/12/02/tdd_pyunit.html
@@ -136,23 +136,170 @@ class KaurnaUtilsTests(TestCase):
             actual_encryption_context
             )
 
+    @raises(Exception)
     def test_GIVEN_secret_not_provided_WHEN_store_secret_called_THEN_error_thrown(self):
-        self.fail()
+        # GIVEN
+        secret = None
+        secret_name = 'password'
+        secret_version = None
+        authorized_entities = ['Sterling Archer', 'Cyril Figgis']
 
+        # WHEN
+        store_secret(secret=secret, secret_name=secret_name, secret_version=secret_version, authorized_entities=authorized_entities)
+
+        # THEN
+        # Exception should get thrown and we should never get here
+
+    @raises(Exception)
     def test_GIVEN_secret_name_not_provided_WHEN_store_secret_called_THEN_error_thrown(self):
-        self.fail()
+        # GIVEN
+        secret = 'guest'
+        secret_name = None
+        secret_version = None
+        authorized_entities = ['Sterling Archer', 'Cyril Figgis']
 
+        # WHEN
+        store_secret(secret=secret, secret_name=secret_name, secret_version=secret_version, authorized_entities=authorized_entities)
+
+        # THEN
+        # Exception should get thrown and we should never get here
+
+    @raises(Exception)
     def test_GIVEN_secret_version_exists_WHEN_store_secret_called_THEN_error_thrown(self):
-        self.fail()
+        # GIVEN
+        secret = 'guest'
+        secret_name = 'password'
+        secret_version = 3
+        authorized_entities = ['Sterling Archer', 'Cyril Figgis']
+
+        patch(
+            'kaurna.utils.load_all_entries',
+            Mock(
+                return_value = [
+                    {'secret_name':'password','secret_version':3}
+                    ]
+                )
+            ).start()
+
+        # WHEN
+        store_secret(secret=secret, secret_name=secret_name, secret_version=secret_version, authorized_entities=authorized_entities)
+
+        # THEN
+        # Exception should get thrown and we should never get here
 
     def test_GIVEN_secret_version_not_provided_WHEN_store_secret_called_THEN_secret_properly_stored(self):
-        self.fail()
+        # GIVEN
+        secret = 'guest'
+        secret_name = 'password'
+        secret_version = None
+        authorized_entities = ['Sterling Archer', 'Cyril Figgis']
+
+        patch(
+            'kaurna.utils.load_all_entries',
+            Mock(
+                return_value = [
+                    {'secret_name':'password','secret_version':1},
+                    {'secret_name':'password','secret_version':2},
+                    {'secret_name':'password','secret_version':4}
+                    ]
+                )
+            ).start()
+
+        patch('kaurna.utils.get_data_key', Mock(return_value={'CiphertextBlob':'abcdabcdabcdabcd','Plaintext':'1234123412341234'})).start()
+        patch('kaurna.utils.encrypt_with_key', Mock(return_value='<insert encrypted stuff here>')).start()
+        patch('kaurna.utils.time.time', Mock(return_value=1234.5678)).start()
+
+        mock_table = MagicMock()
+        patch('kaurna.utils.get_kaurna_table', Mock(return_value=mock_table)).start()
+
+        mock_item = MagicMock()
+        mock_table.new_item.return_value = mock_item
+
+        expected_attributes = {
+            'secret_name': secret_name,
+            'secret_version': 5,
+            'encrypted_secret': '<insert encrypted stuff here>',
+            'encrypted_data_key': binascii.b2a_base64('abcdabcdabcdabcd'),
+            'encryption_context': '{"Sterling Archer": "kaurna", "Cyril Figgis": "kaurna"}',
+            'authorized_entities': json.dumps(authorized_entities),
+            'create_date': 1234,
+            'last_data_key_rotation': 1234,
+            'deprecated': False
+            }
+
+        # WHEN
+        store_secret(secret=secret, secret_name=secret_name, secret_version=secret_version, authorized_entities=authorized_entities)
+
+        # THEN
+        assert_equals(
+            mock_table.new_item.call_args_list,
+            [call(attrs=expected_attributes)]
+            )
+        assert_equals(
+            mock_item.save.call_args_list,
+            [call()]
+            )
 
     def test_GIVEN_secret_version_provided_WHEN_store_secret_called_THEN_secret_properly_stored(self):
-        self.fail()
+        # GIVEN
+        secret = 'guest'
+        secret_name = 'password'
+        secret_version = 3
+        authorized_entities = ['Sterling Archer', 'Cyril Figgis']
 
+        patch(
+            'kaurna.utils.load_all_entries',
+            Mock(
+                return_value = []
+                )
+            ).start()
+
+        patch('kaurna.utils.get_data_key', Mock(return_value={'CiphertextBlob':'abcdabcdabcdabcd','Plaintext':'1234123412341234'})).start()
+        patch('kaurna.utils.encrypt_with_key', Mock(return_value='<insert encrypted stuff here>')).start()
+        patch('kaurna.utils.time.time', Mock(return_value=1234.5678)).start()
+
+        mock_table = MagicMock()
+        patch('kaurna.utils.get_kaurna_table', Mock(return_value=mock_table)).start()
+
+        mock_item = MagicMock()
+        mock_table.new_item.return_value = mock_item
+
+        expected_attributes = {
+            'secret_name': secret_name,
+            'secret_version': 3,
+            'encrypted_secret': '<insert encrypted stuff here>',
+            'encrypted_data_key': binascii.b2a_base64('abcdabcdabcdabcd'),
+            'encryption_context': '{"Sterling Archer": "kaurna", "Cyril Figgis": "kaurna"}',
+            'authorized_entities': json.dumps(authorized_entities),
+            'create_date': 1234,
+            'last_data_key_rotation': 1234,
+            'deprecated': False
+            }
+
+        # WHEN
+        store_secret(secret=secret, secret_name=secret_name, secret_version=secret_version, authorized_entities=authorized_entities)
+
+        # THEN
+        assert_equals(
+            mock_table.new_item.call_args_list,
+            [call(attrs=expected_attributes)]
+            )
+        assert_equals(
+            mock_item.save.call_args_list,
+            [call()]
+            )
+
+    @raises(Exception)
     def test_GIVEN_secret_version_but_not_secret_name_provided_WHEN_load_all_entries_called_THEN_error_thrown(self):
-        self.fail()
+        # GIVEN
+        secret_name = None
+        secret_version = 2
+
+        # WHEN
+        load_all_entries(secret_name=secret_name, secret_version=secret_version)
+
+        # THEN
+        # Exception should get thrown and we should never get here
 
     def test_GIVEN_secret_version_provided_WHEN_load_all_entries_called_THEN_proper_entries_returned(self):
         self.fail()
@@ -172,8 +319,17 @@ class KaurnaUtilsTests(TestCase):
     def test_WHEN_update_secrets_called_THEN_proper_secrets_updated(self):
         self.fail()
 
+    @raises(Exception)
     def test_GIVEN_provided_secret_name_is_None_WHEN_erase_secret_called_THEN_error_thrown(self):
-        self.fail()
+        # GIVEN
+        secret_name = None
+        secret_version = None
+
+        # WHEN
+        erase_secret(secret_name=secret_name, secret_version=secret_version)
+
+        # THEN
+        # Exception should get thrown and we should never get here
 
     def test_GIVEN_provided_secret_name_is_not_None_WHEN_erase_secret_called_THEN_proper_secret_erased(self):
         self.fail()
@@ -193,14 +349,59 @@ class KaurnaUtilsTests(TestCase):
     def test_WHEN_describe_secrets_called_THEN_proper_descriptions_returned(self):
         self.fail()
 
+    @raises(Exception)
     def test_GIVEN_provided_secret_name_is_None_WHEN_get_secret_called_THEN_error_thrown(self):
-        self.fail()
+        # GIVEN
+        secret_name = None
+        secret_version = None
 
+        # WHEN
+        get_secret(secret_name=secret_name, secret_version=secret_version)
+
+        # THEN
+        # Exception should get thrown and we should never get here
+
+    @raises(Exception)
     def test_GIVEN_secret_not_found_WHEN_get_secret_called_THEN_error_thrown(self):
-        self.fail()
+        # GIVEN
+        secret_name = 'password'
+        secret_version = 3
 
+        patch(
+            'kaurna.utils.load_all_entries',
+            Mock(
+                return_value = []
+                )
+            ).start()
+
+        # WHEN
+        get_secret(secret_name=secret_name, secret_version=secret_version)
+
+        # THEN
+        # Exception should get thrown and we should never get here
+
+    @raises(Exception)
     def test_GIVEN_all_secret_versions_are_deprecated_WHEN_get_secret_called_THEN_error_thrown(self):
-        self.fail()
+        # GIVEN
+        secret_name = 'password'
+        secret_version = None
+
+        patch(
+            'kaurna.utils.load_all_entries',
+            Mock(
+                return_value = [
+                    {'secret_name':'password','deprecated':True,'secret_version':1},
+                    {'secret_name':'password','deprecated':True,'secret_version':2},
+                    {'secret_name':'password','deprecated':True,'secret_version':3}
+                    ]
+                )
+            ).start()
+
+        # WHEN
+        get_secret(secret_name=secret_name, secret_version=secret_version)
+
+        # THEN
+        # Exception should get thrown and we should never get here
 
     def test_GIVEN_active_version_available_WHEN_get_secret_called_THEN_proper_secret_returned(self):
         self.fail()
