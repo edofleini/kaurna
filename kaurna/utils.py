@@ -55,7 +55,7 @@ def create_kaurna_key(region='us-east-1', **kwargs):
     # {'Truncated': False, 'Aliases': [{'AliasArn': 'arn:aws:kms:us-east-1:000000000000:alias/aws/ebs', 'AliasName': 'alias/aws/ebs'}, {'AliasArn': 'arn:aws:kms:us-east-1:000000000000:alias/aws/rds', 'AliasName': 'alias/aws/rds'}, {'AliasArn': 'arn:aws:kms:us-east-1:000000000000:alias/aws/redshift', 'AliasName': 'alias/aws/redshift'}, {'AliasArn': 'arn:aws:kms:us-east-1:000000000000:alias/aws/s3', 'AliasName': 'alias/aws/s3'}, {'AliasArn': 'arn:aws:kms:us-east-1:000000000000:alias/kaurna', 'AliasName': 'alias/kaurna', 'TargetKeyId': '1234abcd-12ab-12ab-12ab-123456abcdef'}]}
     aliases = kms.list_aliases()
     if 'alias/kaurna' in [alias['AliasName'] for alias in aliases['Aliases']]:
-        return
+        return False
     else:
         # create_key response:
         # {'KeyMetadata': {'KeyId': '1234abcd-12ab-12ab-12ab-123456abcdef', 'Description': '', 'Enabled': True, 'KeyUsage': 'ENCRYPT_DECRYPT', 'CreationDate': 1431872957.123, 'Arn': 'arn:aws:kms:us-east-1:000000000000:key/1234abcd-12ab-12ab-12ab-123456abcdef', 'AWSAccountId': '000000000000'}}
@@ -63,7 +63,7 @@ def create_kaurna_key(region='us-east-1', **kwargs):
         response = kms.create_key()
         # create_alias has no output
         kms.create_alias('alias/kaurna', response['KeyMetadata']['KeyId'])
-        return
+        return True
 
 # manually and unit tested
 def get_data_key(encryption_context=None, region='us-east-1'):
@@ -136,7 +136,7 @@ def load_all_entries(secret_name=None, secret_version=None, region='us-east-1', 
 def rotate_data_keys(secret_name=None, secret_version=None, region='us-east-1', **kwargs):
     items = load_all_entries(secret_name=secret_name, secret_version=secret_version, region=region)
     for item in items:
-        _reencrypt_item_and_save(item, region=region)
+        _reencrypt_item_and_save(item=item, region=region)
     return
 
 # manually tested
@@ -164,7 +164,7 @@ def update_secrets(secret_name, secret_version=None, authorized_entities=None, r
     items = load_all_entries(secret_name=secret_name, secret_version=secret_version, region=region)
     for item in items:
         item['authorized_entities'] = json.dumps(authorized_entities)
-        _reencrypt_item_and_save(item, region=region)
+        _reencrypt_item_and_save(item=item, region=region)
     return
 
 # manually tested

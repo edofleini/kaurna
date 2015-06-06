@@ -14,10 +14,14 @@ class KaurnaUtilsTests(TestCase):
 
     def setUp(self):
         self.mock_kms = MagicMock()
-        patch('kaurna.utils.boto.kms.connect_to_region', Mock(return_value=self.mock_kms)).start()
+        self.mock_connect_kms = MagicMock(return_value=self.mock_kms)
+        patch('kaurna.utils.boto.kms.connect_to_region', self.mock_connect_kms).start()
 
         self.mock_ddb = MagicMock()
-        patch('kaurna.utils.boto.dynamodb.connect_to_region', Mock(return_value=self.mock_ddb)).start()
+        self.mock_connect_ddb = MagicMock(return_value=self.mock_ddb)
+        patch('kaurna.utils.boto.dynamodb.connect_to_region', self.mock_connect_ddb).start()
+
+        self.region = 'us-west-1'
 
     def tearDown(self):
         patch.stopall()
@@ -33,10 +37,14 @@ class KaurnaUtilsTests(TestCase):
         self.mock_ddb.create_schema.return_value = mock_schema
 
         # WHEN - perform the actions under test
-        returned_table = get_kaurna_table(region='us-east-1', read_throughput=5, write_throughput=2)
+        returned_table = get_kaurna_table(region=self.region, read_throughput=5, write_throughput=2)
 
         # THEN - verify the expected results were observed
         assert_equals(mock_table, returned_table)
+        assert_equals(
+            self.mock_connect_ddb.call_args_list,
+            [call(region_name=self.region)]
+            )
         assert_equals(
             self.mock_ddb.create_table.call_args_list,
             [call(name='kaurna', schema=mock_schema, read_units=5, write_units=2)]
@@ -48,10 +56,14 @@ class KaurnaUtilsTests(TestCase):
         self.mock_ddb.get_table.return_value = mock_table
 
         # WHEN - perform the actions under test
-        returned_table = get_kaurna_table(region='us-east-1', read_throughput=5, write_throughput=2)
+        returned_table = get_kaurna_table(region=self.region, read_throughput=5, write_throughput=2)
 
         # THEN - verify the expected results were observed
         assert_equals(mock_table, returned_table)
+        assert_equals(
+            self.mock_connect_ddb.call_args_list,
+            [call(region_name=self.region)]
+            )
         assert_equals(
             self.mock_ddb.create_table.call_args_list,
             []
@@ -67,9 +79,17 @@ class KaurnaUtilsTests(TestCase):
         self.mock_kms.create_key.return_value = {'KeyMetadata':{'KeyId':'foobar'}}
 
         # WHEN
-        create_kaurna_key()
+        response = create_kaurna_key(region=self.region)
 
         # THEN
+        assert_equals(
+            True,
+            response
+            )
+        assert_equals(
+            self.mock_connect_kms.call_args_list,
+            [call(region_name=self.region)]
+            )
         assert_equals(
             self.mock_kms.create_key.call_args_list,
             [call()]
@@ -89,9 +109,17 @@ class KaurnaUtilsTests(TestCase):
                 ]}
 
         # WHEN
-        create_kaurna_key()
+        response = create_kaurna_key(region=self.region)
 
         # THEN
+        assert_equals(
+            False,
+            response
+            )
+        assert_equals(
+            self.mock_connect_kms.call_args_list,
+            [call(region_name=self.region)]
+            )
         assert_equals(
             self.mock_kms.create_key.call_args_list,
             []
@@ -109,12 +137,16 @@ class KaurnaUtilsTests(TestCase):
         encryption_context = {'hafgufa':'kaurna','edofleini':'kaurna'}
 
         # WHEN
-        actual_data_key = get_data_key(encryption_context=encryption_context)
+        actual_data_key = get_data_key(encryption_context=encryption_context, region=self.region)
 
         # THEN
         assert_equals(
             expected_data_key,
             actual_data_key
+            )
+        assert_equals(
+            self.mock_connect_kms.call_args_list,
+            [call(region_name=self.region)]
             )
         assert_equals(
             self.mock_kms.generate_data_key.call_args_list,
@@ -146,7 +178,7 @@ class KaurnaUtilsTests(TestCase):
         authorized_entities = ['Sterling Archer', 'Cyril Figgis']
 
         # WHEN
-        store_secret(secret=secret, secret_name=secret_name, secret_version=secret_version, authorized_entities=authorized_entities)
+        store_secret(secret=secret, secret_name=secret_name, secret_version=secret_version, authorized_entities=authorized_entities, region=self.region)
 
         # THEN
         # Exception should get thrown and we should never get here
@@ -160,7 +192,7 @@ class KaurnaUtilsTests(TestCase):
         authorized_entities = ['Sterling Archer', 'Cyril Figgis']
 
         # WHEN
-        store_secret(secret=secret, secret_name=secret_name, secret_version=secret_version, authorized_entities=authorized_entities)
+        store_secret(secret=secret, secret_name=secret_name, secret_version=secret_version, authorized_entities=authorized_entities, region=self.region)
 
         # THEN
         # Exception should get thrown and we should never get here
@@ -183,7 +215,7 @@ class KaurnaUtilsTests(TestCase):
             ).start()
 
         # WHEN
-        store_secret(secret=secret, secret_name=secret_name, secret_version=secret_version, authorized_entities=authorized_entities)
+        store_secret(secret=secret, secret_name=secret_name, secret_version=secret_version, authorized_entities=authorized_entities, region=self.region)
 
         # THEN
         # Exception should get thrown and we should never get here
@@ -211,7 +243,8 @@ class KaurnaUtilsTests(TestCase):
         patch('kaurna.utils.time.time', Mock(return_value=1234.5678)).start()
 
         mock_table = MagicMock()
-        patch('kaurna.utils.get_kaurna_table', Mock(return_value=mock_table)).start()
+        mock_get_table = MagicMock(return_value=mock_table)
+        patch('kaurna.utils.get_kaurna_table', mock_get_table).start()
 
         mock_item = MagicMock()
         mock_table.new_item.return_value = mock_item
@@ -229,9 +262,13 @@ class KaurnaUtilsTests(TestCase):
             }
 
         # WHEN
-        store_secret(secret=secret, secret_name=secret_name, secret_version=secret_version, authorized_entities=authorized_entities)
+        store_secret(secret=secret, secret_name=secret_name, secret_version=secret_version, authorized_entities=authorized_entities, region=self.region)
 
         # THEN
+        assert_equals(
+            mock_get_table.call_args_list,
+            [call(region=self.region)]
+            )
         assert_equals(
             mock_table.new_item.call_args_list,
             [call(attrs=expected_attributes)]
@@ -260,7 +297,8 @@ class KaurnaUtilsTests(TestCase):
         patch('kaurna.utils.time.time', Mock(return_value=1234.5678)).start()
 
         mock_table = MagicMock()
-        patch('kaurna.utils.get_kaurna_table', Mock(return_value=mock_table)).start()
+        mock_get_table = MagicMock(return_value=mock_table)
+        patch('kaurna.utils.get_kaurna_table', mock_get_table).start()
 
         mock_item = MagicMock()
         mock_table.new_item.return_value = mock_item
@@ -278,9 +316,13 @@ class KaurnaUtilsTests(TestCase):
             }
 
         # WHEN
-        store_secret(secret=secret, secret_name=secret_name, secret_version=secret_version, authorized_entities=authorized_entities)
+        store_secret(secret=secret, secret_name=secret_name, secret_version=secret_version, authorized_entities=authorized_entities, region=self.region)
 
         # THEN
+        assert_equals(
+            mock_get_table.call_args_list,
+            [call(region=self.region)]
+            )
         assert_equals(
             mock_table.new_item.call_args_list,
             [call(attrs=expected_attributes)]
@@ -297,7 +339,7 @@ class KaurnaUtilsTests(TestCase):
         secret_version = 2
 
         # WHEN
-        load_all_entries(secret_name=secret_name, secret_version=secret_version)
+        load_all_entries(secret_name=secret_name, secret_version=secret_version, region=self.region)
 
         # THEN
         # Exception should get thrown and we should never get here
@@ -309,16 +351,21 @@ class KaurnaUtilsTests(TestCase):
         attributes_to_get = ['secret_name', 'secret_version']
 
         mock_table = MagicMock()
-        self.mock_ddb.get_table.return_value = mock_table
+        mock_get_table = MagicMock(return_value=mock_table)
+        patch('kaurna.utils.get_kaurna_table', mock_get_table).start()
         expected_output = [
             {'secret_name':secret_name,'secret_version':secret_version}
             ]
         mock_table.query.return_value = expected_output
 
         # WHEN
-        actual_output = load_all_entries(secret_name=secret_name, secret_version=secret_version, attributes_to_get=attributes_to_get)
+        actual_output = load_all_entries(secret_name=secret_name, secret_version=secret_version, attributes_to_get=attributes_to_get, region=self.region)
 
         # THEN
+        assert_equals(
+            mock_get_table.call_args_list,
+            [call(region=self.region)]
+            )
         assert_equals(
             expected_output,
             actual_output
@@ -335,7 +382,8 @@ class KaurnaUtilsTests(TestCase):
         attributes_to_get = ['secret_name', 'secret_version']
 
         mock_table = MagicMock()
-        self.mock_ddb.get_table.return_value = mock_table
+        mock_get_table = MagicMock(return_value=mock_table)
+        patch('kaurna.utils.get_kaurna_table', mock_get_table).start()
         expected_output = [
             {'secret_name':secret_name,'secret_version':1},
             {'secret_name':secret_name,'secret_version':2}
@@ -343,9 +391,13 @@ class KaurnaUtilsTests(TestCase):
         mock_table.query.return_value = expected_output
 
         # WHEN
-        actual_output = load_all_entries(secret_name=secret_name, secret_version=secret_version, attributes_to_get=attributes_to_get)
+        actual_output = load_all_entries(secret_name=secret_name, secret_version=secret_version, attributes_to_get=attributes_to_get, region=self.region)
 
         # THEN
+        assert_equals(
+            mock_get_table.call_args_list,
+            [call(region=self.region)]
+            )
         assert_equals(
             expected_output,
             actual_output
@@ -362,7 +414,8 @@ class KaurnaUtilsTests(TestCase):
         attributes_to_get = ['secret_name', 'secret_version']
 
         mock_table = MagicMock()
-        self.mock_ddb.get_table.return_value = mock_table
+        mock_get_table = MagicMock(return_value=mock_table)
+        patch('kaurna.utils.get_kaurna_table', mock_get_table).start()
         expected_output = [
             {'secret_name':'password','secret_version':1},
             {'secret_name':'password','secret_version':2},
@@ -372,9 +425,13 @@ class KaurnaUtilsTests(TestCase):
         mock_table.scan.return_value = expected_output
 
         # WHEN
-        actual_output = load_all_entries(secret_name=secret_name, secret_version=secret_version, attributes_to_get=attributes_to_get)
+        actual_output = load_all_entries(secret_name=secret_name, secret_version=secret_version, attributes_to_get=attributes_to_get, region=self.region)
 
         # THEN
+        assert_equals(
+            mock_get_table.call_args_list,
+            [call(region=self.region)]
+            )
         assert_equals(
             expected_output,
             actual_output
@@ -384,14 +441,149 @@ class KaurnaUtilsTests(TestCase):
             [call(attributes_to_get=attributes_to_get)]
             )
 
-    def test_WHEN_rotate_data_keys_called_THEN_data_keys_rotated(self):
-        self.fail()
+    def test_GIVEN_secret_version_not_provided_WHEN_rotate_data_keys_called_THEN_data_keys_rotated(self):
+        # GIVEN
+        secret_name = 'password'
+        secret_version = None
+
+        item1 = MagicMock()
+        item2 = MagicMock()
+        item3 = MagicMock()
+        mock_load_all_entries = MagicMock(return_value = [item1, item2, item3])
+        patch(
+            'kaurna.utils.load_all_entries',
+            mock_load_all_entries
+            ).start()
+
+        mock_reencrypt_item_and_save = MagicMock()
+        patch(
+            'kaurna.utils._reencrypt_item_and_save',
+            mock_reencrypt_item_and_save
+            ).start()
+
+        # WHEN
+        rotate_data_keys(secret_name=secret_name, secret_version=secret_version, region=self.region)
+
+        # THEN
+        assert_equals(
+            mock_load_all_entries.call_args_list,
+            [call(secret_name=secret_name, secret_version=secret_version, region=self.region)]
+            )
+        assert_equals(
+            mock_reencrypt_item_and_save.call_args_list,
+            [
+                call(item=item1, region=self.region),
+                call(item=item2, region=self.region),
+                call(item=item3, region=self.region)
+                ]
+            )
+
+    def test_GIVEN_secret_version_provided_WHEN_rotate_data_keys_called_THEN_data_keys_rotated(self):
+        # GIVEN
+        secret_name = 'password'
+        secret_version = 2
+
+        item = MagicMock()
+        mock_load_all_entries = MagicMock(return_value = [item])
+        patch(
+            'kaurna.utils.load_all_entries',
+            mock_load_all_entries
+            ).start()
+
+        mock_reencrypt_item_and_save = MagicMock()
+        patch(
+            'kaurna.utils._reencrypt_item_and_save',
+            mock_reencrypt_item_and_save
+            ).start()
+
+        # WHEN
+        rotate_data_keys(secret_name=secret_name, secret_version=secret_version, region=self.region)
+
+        # THEN
+        assert_equals(
+            mock_load_all_entries.call_args_list,
+            [call(secret_name=secret_name, secret_version=secret_version, region=self.region)]
+            )
+        assert_equals(
+            mock_reencrypt_item_and_save.call_args_list,
+            [call(item=item, region=self.region)]
+            )
 
     def test_WHEN__reencrypt_item_and_save_called_THEN_item_reencrypted_and_saved(self):
         self.fail()
 
-    def test_WHEN_update_secrets_called_THEN_proper_secrets_updated(self):
-        self.fail()
+    def test_GIVEN_secret_version_not_provided_WHEN_update_secrets_called_THEN_proper_secrets_updated(self):
+        # GIVEN
+        secret_name = 'password'
+        secret_version = None
+        authorized_entities = ['Sterling Archer','Cyril Figgis']
+
+        item1 = {'secret_name':secret_name, 'secret_version':1, 'authorized_entities':json.dumps(['Mallory Archer'])}
+        expected_item1 = {'secret_name':secret_name, 'secret_version':1, 'authorized_entities':json.dumps(['Sterling Archer','Cyril Figgis'])}
+        item2 = {'secret_name':secret_name, 'secret':2, 'authorized_entities':json.dumps(['Algernop Krieger'])}
+        expected_item2 = {'secret_name':secret_name, 'secret':2, 'authorized_entities':json.dumps(['Sterling Archer','Cyril Figgis'])}
+        mock_load_all_entries = MagicMock(return_value = [item1, item2])
+        patch(
+            'kaurna.utils.load_all_entries',
+            mock_load_all_entries
+            ).start()
+
+        mock_reencrypt_item_and_save = MagicMock()
+        patch(
+            'kaurna.utils._reencrypt_item_and_save',
+            mock_reencrypt_item_and_save
+            ).start()
+
+        # WHEN
+        update_secrets(secret_name=secret_name, secret_version=secret_version, region=self.region, authorized_entities=authorized_entities)
+
+        # THEN
+        assert_equals(
+            mock_load_all_entries.call_args_list,
+            [call(secret_name=secret_name, secret_version=secret_version, region=self.region)]
+            )
+        assert_equals(
+            mock_reencrypt_item_and_save.call_args_list,
+            [
+                call(item=expected_item1, region=self.region),
+                call(item=expected_item2, region=self.region)
+                ]
+            )
+
+    def test_GIVEN_secret_version_provided_WHEN_update_secrets_called_THEN_proper_secrets_updated(self):
+        # GIVEN
+        secret_name = 'password'
+        secret_version = 2
+        authorized_entities = ['Sterling Archer','Cyril Figgis']
+
+        item = {'secret_name':secret_name, 'secret_version':2, 'authorized_entities':json.dumps(['Mallory Archer'])}
+        expected_item = {'secret_name':secret_name, 'secret_version':2, 'authorized_entities':json.dumps(['Sterling Archer','Cyril Figgis'])}
+        mock_load_all_entries = MagicMock(return_value = [item])
+        patch(
+            'kaurna.utils.load_all_entries',
+            mock_load_all_entries
+            ).start()
+
+        mock_reencrypt_item_and_save = MagicMock()
+        patch(
+            'kaurna.utils._reencrypt_item_and_save',
+            mock_reencrypt_item_and_save
+            ).start()
+
+        # WHEN
+        update_secrets(secret_name=secret_name, secret_version=secret_version, region=self.region, authorized_entities=authorized_entities)
+
+        # THEN
+        assert_equals(
+            mock_load_all_entries.call_args_list,
+            [call(secret_name=secret_name, secret_version=secret_version, region=self.region)]
+            )
+        assert_equals(
+            mock_reencrypt_item_and_save.call_args_list,
+            [
+                call(item=expected_item, region=self.region)
+                ]
+            )
 
     @raises(Exception)
     def test_GIVEN_provided_secret_name_is_None_WHEN_erase_secret_called_THEN_error_thrown(self):
@@ -405,14 +597,112 @@ class KaurnaUtilsTests(TestCase):
         # THEN
         # Exception should get thrown and we should never get here
 
-    def test_GIVEN_provided_secret_name_is_not_None_WHEN_erase_secret_called_THEN_proper_secret_erased(self):
-        self.fail()
+    def test_GIVEN_secret_version_but_not_secret_name_provided_WHEN_erase_secret_called_THEN_proper_secret_erased(self):
+        # GIVEN
+        secret_name = 'password'
+        secret_version = None
+
+        item1 = MagicMock()
+        item2 = MagicMock()
+        item3 = MagicMock()
+        mock_load_all_entries = MagicMock(return_value = [item1, item2, item3])
+        patch(
+            'kaurna.utils.load_all_entries',
+            mock_load_all_entries
+            ).start()
+
+        # WHEN
+        erase_secret(secret_name=secret_name, secret_version=secret_version, region=self.region)
+
+        # THEN
+        assert_equals(
+            mock_load_all_entries.call_args_list,
+            [call(secret_name=secret_name, secret_version=secret_version, region=self.region)]
+            )
+        assert_equals(
+            item1.delete.call_args_list,
+            [
+                call()
+                ]
+            )
+        assert_equals(
+            item2.delete.call_args_list,
+            [
+                call()
+                ]
+            )
+        assert_equals(
+            item3.delete.call_args_list,
+            [
+                call()
+                ]
+            )
+
+    def test_GIVEN_secret_version_and_secret_name_provided_WHEN_erase_secret_called_THEN_proper_secret_erased(self):
+        # GIVEN
+        secret_name = 'password'
+        secret_version = 2
+        authorized_entities = ['Sterling Archer','Cyril Figgis']
+
+        item = MagicMock()
+        mock_load_all_entries = MagicMock(return_value = [item])
+        patch(
+            'kaurna.utils.load_all_entries',
+            mock_load_all_entries
+            ).start()
+
+        # WHEN
+        erase_secret(secret_name=secret_name, secret_version=secret_version, region=self.region)
+
+        # THEN
+        assert_equals(
+            mock_load_all_entries.call_args_list,
+            [call(secret_name=secret_name, secret_version=secret_version, region=self.region)]
+            )
+        assert_equals(
+            item.delete.call_args_list,
+            [
+                call()
+                ]
+            )
 
     def test_GIVEN_seriously_is_False_WHEN_erase_all_the_things_called_THEN_nothing_happens(self):
-        self.fail()
+        # GIVEN
+        mock_table = MagicMock()
+        mock_get_table = MagicMock(return_value=mock_table)
+        patch('kaurna.utils.get_kaurna_table', mock_get_table).start()
+
+        # WHEN
+        erase_all_the_things(seriously=False, region=self.region)
+
+        # THEN
+        assert_equals(
+            mock_get_table.call_args_list,
+            []
+            )
+        assert_equals(
+            mock_table.delete.call_args_list,
+            []
+            )
 
     def test_GIVEN_seriously_is_True_WHEN_erase_all_the_things_called_THEN_kaurna_table_deleted(self):
-        self.fail()
+        # GIVEN
+        mock_table = MagicMock()
+        mock_get_table = MagicMock(return_value=mock_table)
+        patch('kaurna.utils.get_kaurna_table', mock_get_table).start()
+
+        # WHEN
+        erase_all_the_things(seriously=True, region=self.region)
+
+        # THEN
+        assert_equals(
+            mock_get_table.call_args_list,
+            [call(region=self.region)]
+            )
+        assert_equals(
+            mock_table.delete.call_args_list,
+            [call()]
+            )
 
     def test_WHEN_deprecate_secrets_called_THEN_proper_secrets_deprecated(self):
         self.fail()
