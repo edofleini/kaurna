@@ -875,11 +875,159 @@ class KaurnaUtilsTests(TestCase):
             [call.__setitem__('deprecated', False), call.save()]
             )
 
+    def test_GIVEN_neither_secret_name_nor_secret_version_provided_WHEN_describe_secrets_called_THEN_proper_descriptions_returned(self):
+        # GIVEN
+        secret_name = None
+        secret_version = None
+
+        item1 = {'secret_name': 'password', 'secret_version': 1, 'create_date': 1234, 'last_data_key_rotation': 2345, 'authorized_entities': '["Mallory Archer"]', 'deprecated': True}
+        item2 = {'secret_name': 'password', 'secret_version': 2, 'create_date': 2300, 'last_data_key_rotation': 2300, 'authorized_entities': '["Sterling Archer", "Cyril Figgis"]', 'deprecated': False}
+        item3 = {'secret_name': 'github_pem', 'secret_version': 1, 'create_date': 0001, 'last_data_key_rotation': 0003, 'authorized_entities': '["Algernop Krieger"]', 'deprecated': True}
+        item4 = {'secret_name': 'github_pem', 'secret_version': 3, 'create_date': 0002, 'last_data_key_rotation': 0004, 'authorized_entities': '["Algernop Krieger"]', 'deprecated': True}
+        item5 = {'secret_name': 'github_pem', 'secret_version': 4, 'create_date': 0003, 'last_data_key_rotation': 0005, 'authorized_entities': '["Algernop Krieger"]', 'deprecated': False}
+
+        patch(
+            'kaurna.utils.load_all_entries',
+            Mock(
+                return_value = [
+                    item1,
+                    item2,
+                    item3,
+                    item4,
+                    item5
+                    ]
+                )
+            ).start()
+
+        expected_descriptions = {
+            'password':
+                {
+                1:{
+                    'create_date': 1234,
+                    'last_data_key_rotation': 2345,
+                    'authorized_entities': ['Mallory Archer'],
+                    'deprecated': True
+                    },
+                2:{
+                    'create_date': 2300,
+                    'last_data_key_rotation': 2300,
+                    'authorized_entities': ['Sterling Archer', 'Cyril Figgis'],
+                    'deprecated': False
+                    }
+                },
+            'github_pem':
+                {
+                1:{
+                    'create_date': 0001,
+                    'last_data_key_rotation': 0003,
+                    'authorized_entities': ['Algernop Krieger'],
+                    'deprecated': True
+                    },
+                3:{
+                    'create_date': 0002,
+                    'last_data_key_rotation': 0004,
+                    'authorized_entities': ['Algernop Krieger'],
+                    'deprecated': True
+                    },
+                4:{
+                    'create_date': 0003,
+                    'last_data_key_rotation': 0005,
+                    'authorized_entities': ['Algernop Krieger'],
+                    'deprecated': False
+                    },
+                }
+            }
+
+        # WHEN
+        actual_descriptions = describe_secrets(secret_name=secret_name, secret_version=secret_version, region=self.region)
+
+        # THEN
+        assert_equals(
+            expected_descriptions,
+            actual_descriptions
+            )
+
     def test_GIVEN_secret_name_but_not_secret_version_provided_WHEN_describe_secrets_called_THEN_proper_descriptions_returned(self):
-        self.fail()
+        # GIVEN
+        secret_name = 'password'
+        secret_version = None
+
+        item1 = {'secret_name': 'password', 'secret_version': 1, 'create_date': 1234, 'last_data_key_rotation': 2345, 'authorized_entities': '["Mallory Archer"]', 'deprecated': True}
+        item2 = {'secret_name': 'password', 'secret_version': 2, 'create_date': 2300, 'last_data_key_rotation': 2300, 'authorized_entities': '["Sterling Archer", "Cyril Figgis"]', 'deprecated': False}
+
+        patch(
+            'kaurna.utils.load_all_entries',
+            Mock(
+                return_value = [
+                    item1,
+                    item2
+                    ]
+                )
+            ).start()
+
+        expected_descriptions = {
+            'password':
+                {
+                1:{
+                    'create_date': 1234,
+                    'last_data_key_rotation': 2345,
+                    'authorized_entities': ['Mallory Archer'],
+                    'deprecated': True
+                    },
+                2:{
+                    'create_date': 2300,
+                    'last_data_key_rotation': 2300,
+                    'authorized_entities': ['Sterling Archer', 'Cyril Figgis'],
+                    'deprecated': False
+                    }
+                }
+            }
+
+        # WHEN
+        actual_descriptions = describe_secrets(secret_name=secret_name, secret_version=secret_version, region=self.region)
+
+        # THEN
+        assert_equals(
+            expected_descriptions,
+            actual_descriptions
+            )
 
     def test_GIVEN_secret_name_and_secret_version_provided_WHEN_describe_secrets_called_THEN_proper_descriptions_returned(self):
-        self.fail()
+        # GIVEN
+        secret_name = 'password'
+        secret_version = 2
+
+        item2 = {'secret_name': 'password', 'secret_version': 2, 'create_date': 2300, 'last_data_key_rotation': 2300, 'authorized_entities': '["Sterling Archer", "Cyril Figgis"]', 'deprecated': False}
+
+        patch(
+            'kaurna.utils.load_all_entries',
+            Mock(
+                return_value = [
+                    item2
+                    ]
+                )
+            ).start()
+
+        expected_descriptions = {
+            'password':
+                {
+                2:{
+                    'create_date': 2300,
+                    'last_data_key_rotation': 2300,
+                    'authorized_entities': ['Sterling Archer', 'Cyril Figgis'],
+                    'deprecated': False
+                    }
+                }
+            }
+
+        # WHEN
+        actual_descriptions = describe_secrets(secret_name=secret_name, secret_version=secret_version, region=self.region)
+
+        # THEN
+        assert_equals(
+            expected_descriptions,
+            actual_descriptions
+            )
 
     @raises(Exception)
     def test_GIVEN_provided_secret_name_is_None_WHEN_get_secret_called_THEN_error_thrown(self):
