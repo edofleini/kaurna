@@ -233,7 +233,10 @@ def get_secret(secret_name, secret_version=None, region='us-east-1', **kwargs):
     if len(items) == 0:
         raise Exception('No active versions of secret \'{0}\' found.'.format(secret_name))
     item = items[-1]
-    return decrypt_with_key(item['encrypted_secret'], decrypt_with_kms(item['encrypted_data_key'], json.loads(item['encryption_context']), region=region)['Plaintext'])
+    return _decrypt_item(item=item, region=region)
+
+def _decrypt_item(item, region='us-east-1'):
+    return decrypt_with_key(item['encrypted_secret'], decrypt_with_kms(item['encrypted_data_key'], json.loads(item['encryption_context']), region=region)['Plaintext'])    
 
 # manually tested
 def encrypt_with_key(plaintext, key, iv=None):

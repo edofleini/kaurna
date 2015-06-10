@@ -1089,6 +1089,48 @@ class KaurnaUtilsTests(TestCase):
     def test_GIVEN_secret_name_and_secret_version_provided_WHEN_get_secret_called_THEN_proper_secret_returned(self):
         self.fail()
 
+    def test_GIVEN_valid_item_provided_WHEN__decrypt_item_called_THEN_proper_secret_returned(self):
+        # GIVEN
+        item = {
+            'encrypted_secret': '<encrypted_secret>',
+            'encrypted_data_key': '<encrypted_data_key>',
+            'encryption_context': '{"Algernop Krieger": "kaurna"}'
+            }
+        
+        expected_secret = '<decrypted_secret>'
+        mock_decrypt_with_key = MagicMock(return_value = expected_secret)
+        mock_decrypt_with_kms = MagicMock(return_value = {'Plaintext': '<decrypted_data_key>'})
+
+        patch(
+            'kaurna.utils.decrypt_with_key',
+            mock_decrypt_with_key
+            ).start()
+
+        patch(
+            'kaurna.utils.decrypt_with_kms',
+            mock_decrypt_with_kms
+            ).start()
+
+
+        # WHEN
+        actual_secret = kaurna.utils._decrypt_item(item=item, region=self.region)
+
+        # THEN
+        assert_equals(
+            expected_secret,
+            actual_secret
+            )
+
+        assert_equals(
+            mock_decrypt_with_key.call_args_list,
+            [call('<encrypted_secret>', '<decrypted_data_key>')]
+            )
+
+        assert_equals(
+            mock_decrypt_with_kms.call_args_list,
+            [call('<encrypted_data_key>', {'Algernop Krieger':'kaurna'}, region=self.region)]
+            )
+
     def test_GIVEN_iv_provided_WHEN_encrypt_with_key_called_THEN_plaintext_properly_encrypted(self):
         # GIVEN
         iv = base64.b64decode('kYSYMMqlQaVoUlXwmKUNLQ==')
