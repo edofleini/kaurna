@@ -143,10 +143,10 @@ def rotate_data_keys(secret_name=None, secret_version=None, region='us-east-1', 
 def _reencrypt_item_and_save(item, region='us-east-1'):
     # this method takes a DynamoDB item and reencrypts it
     # It uses the 'encryption_context' entry for decryption, but then uses the 'authorized_entities' attribute to re-encrypt
-    old_encrypted_secret = item['encrypted_secret']
-    old_encrypted_data_key = item['encrypted_data_key']
-    old_encryption_context = json.loads(item['encryption_context'])
-    new_encryption_context = _generate_encryption_context(json.loads(item['authorized_entities']))
+    old_encrypted_secret = item.getitem('encrypted_secret')
+    old_encrypted_data_key = item.getitem('encrypted_data_key')
+    old_encryption_context = json.loads(item.getitem('encryption_context'))
+    new_encryption_context = _generate_encryption_context(json.loads(item.getitem('authorized_entities')))
     new_data_key = get_data_key(encryption_context=new_encryption_context, region=region)
     new_encrypted_data_key = binascii.b2a_base64(new_data_key['CiphertextBlob'])
     new_encrypted_secret = encrypt_with_key(plaintext=decrypt_with_key(old_encrypted_secret, decrypt_with_kms(old_encrypted_data_key, old_encryption_context, region=region)['Plaintext']), key=new_data_key['Plaintext'])
@@ -243,7 +243,7 @@ def encrypt_with_key(plaintext, key, iv=None):
 def decrypt_with_key(ciphertext, key):
     return unpad(AES.new(key, AES.MODE_CBC, base64.b64decode(ciphertext)[:16]).decrypt(base64.b64decode(ciphertext)[16:]))
 
-# manually tested
+# Untested, as we never actually use this.  It's just here for symmetry.
 def encrypt_with_kms(plaintext, key_id='alias/kaurna', encryption_context=None, grant_tokens=None, region='us-east-1'):
     # encrypt output:
     # {u'KeyId': u'arn:aws:kms:us-east-1:000000000000:key/1234abcd-12ab-12ab-12ab-123456abcdef', u'CiphertextBlob': '<binary blob>'}

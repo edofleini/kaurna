@@ -510,7 +510,65 @@ class KaurnaUtilsTests(TestCase):
             )
 
     def test_WHEN__reencrypt_item_and_save_called_THEN_item_reencrypted_and_saved(self):
-        self.fail()
+        # GIVEN
+
+        item = MagicMock()
+        item.getitem.side_effect = ['old_encrypted_secret', 'old_encrypted_data_key', '{"Mallory Archer": "kaurna"}', '["Sterling Archer", "Cyril Figgis"]']
+
+        mock_get_data_key = MagicMock(return_value = {'Plaintext':'data_key_plaintext', 'CiphertextBlob':'data_key_ciphertext'})
+        patch(
+            'kaurna.utils.get_data_key',
+            mock_get_data_key
+            ).start()
+
+        mock_decrypt_with_kms = MagicMock(return_value = {'Plaintext': 'decrypt_with_kms_output'})
+        patch(
+            'kaurna.utils.decrypt_with_kms',
+            mock_decrypt_with_kms
+            ).start()
+
+        mock_decrypt_with_key = MagicMock(return_value = 'decrypt_with_key_output')
+        patch(
+            'kaurna.utils.decrypt_with_key',
+            mock_decrypt_with_key
+            ).start()
+
+        mock_encrypt_with_key = MagicMock(return_value = 'encrypt_with_key_output')
+        patch(
+            'kaurna.utils.encrypt_with_key',
+            mock_encrypt_with_key
+            ).start()
+
+        patch(
+            'kaurna.utils.time.time',
+            Mock(return_value = 1234.567)
+            ).start()
+
+        # WHEN
+
+        output = kaurna.utils._reencrypt_item_and_save(item=item, region=self.region)
+
+        # THEN
+
+        assert_equals(
+            item.mock_calls,
+            [
+                call.getitem('encrypted_secret'),
+                call.getitem('encrypted_data_key'),
+                call.getitem('encryption_context'),
+                call.getitem('authorized_entities'),
+                call.__setitem__('encryption_context', '{"Sterling Archer": "kaurna", "Cyril Figgis": "kaurna"}'),
+                call.__setitem__('encrypted_secret', 'encrypt_with_key_output'),
+                call.__setitem__('encrypted_data_key', 'ZGF0YV9rZXlfY2lwaGVydGV4dA==\n'),
+                call.__setitem__('last_data_key_rotation', 1234),
+                call.save()
+                ]
+            )
+
+        assert_equals(
+            item,
+            output
+            )
 
     def test_GIVEN_secret_name_but_not_secret_version_provided_WHEN_update_secrets_called_THEN_proper_secrets_updated(self):
         # GIVEN
