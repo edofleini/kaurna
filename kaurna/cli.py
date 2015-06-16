@@ -98,11 +98,11 @@ class CLIDispatcher:
     
     # hasn't yet been manually tested in its latest form
     def deprecate_secrets(self, **kwargs):
-        secrets = kaurna.load_all_entries(attributes_to_get=['secret_name','secret_version', 'deprecated'], **kwargs)
-        sorted_secrets = sorted([secret in secrets if not secret['deprecated']], key=lambda s: '{0}/{1}'.format(s['secret_name'], s['secret_version']))
+        secrets = kaurna.load_all_entries(attributes_to_get=['secret_name','secret_version','deprecated'], **kwargs)
+        sorted_secrets = sorted([secret for secret in secrets if not secret['deprecated']], key=lambda s: '{0}/{1}'.format(s['secret_name'], s['secret_version']))
         if sorted_secrets:
             print('About to deprecate the following secrets:')
-            for secret in :
+            for secret in sorted_secrets:
                 print('Name: {0}, version {1}'.format(secret['secret_name'], secret['secret_version']))
             if kwargs['force']:
                 print('--force provided.  Skipping prompt.')
