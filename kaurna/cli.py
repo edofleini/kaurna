@@ -159,7 +159,7 @@ class CLIDispatcher:
         parser.add_argument('--secret', default=None, help='Argument: The secret to store.  Currently the only way to enter it is here, but I\'ll add a way to enter it that doesn\'t display it later.  Required for store-secret.')
         parser.add_argument('--authorized-entities', nargs='+', help='Argument: The entities that should have permission to access the secret(s).  Optional for update-secrets and store-secret; if not provided the empty list will be used.')
         parser.add_argument('-f', '--force', action='store_true', help='Argument: Skip normal confirmation prompts.  Optional for all calls.  Ignored by erase-all-the-things.')
-        parser.add_argument('-v', '--verbose', action='store_true', help='Argument: Print random usually-useless information.  May or may not print anything depending on whether or not I\ve implemented it yet, as I haven\'t right now.  Optional for all calls.')
+        parser.add_argument('-v', '--verbose', action='store_true', help='Argument: Print random usually-useless information.  May or may not print anything depending on whether or not I\'ve implemented it yet, as I haven\'t right now.  Optional for all calls.')
 
         return parser
 
