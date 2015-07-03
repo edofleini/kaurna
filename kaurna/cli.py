@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 
 import argparse
-import kaurna.utils as kaurna
+import kaurna
 
 class CLIDispatcher:
 

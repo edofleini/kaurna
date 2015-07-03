@@ -2,8 +2,8 @@
 
 from boto.dynamodb.condition import EQ
 from boto.exception import DynamoDBResponseError
-from kaurna.utils import *
-import kaurna.utils # necessary to test _generate_encryption_context
+from kaurna import *
+import kaurna # necessary to test _generate_encryption_context
 from mock import call, MagicMock, Mock, patch
 from nose.tools import assert_equals, raises
 from unittest import TestCase
@@ -15,11 +15,11 @@ class KaurnaUtilsTests(TestCase):
     def setUp(self):
         self.mock_kms = MagicMock()
         self.mock_connect_kms = MagicMock(return_value=self.mock_kms)
-        patch('kaurna.utils.boto.kms.connect_to_region', self.mock_connect_kms).start()
+        patch('kaurna.boto.kms.connect_to_region', self.mock_connect_kms).start()
 
         self.mock_ddb = MagicMock()
         self.mock_connect_ddb = MagicMock(return_value=self.mock_ddb)
-        patch('kaurna.utils.boto.dynamodb.connect_to_region', self.mock_connect_ddb).start()
+        patch('kaurna.boto.dynamodb.connect_to_region', self.mock_connect_ddb).start()
 
         self.region = 'us-west-1'
 
@@ -161,7 +161,7 @@ class KaurnaUtilsTests(TestCase):
         authorized_entities = ['hafgufa','edofleini']
 
         # WHEN
-        actual_encryption_context = kaurna.utils._generate_encryption_context(authorized_entities=authorized_entities)
+        actual_encryption_context = kaurna._generate_encryption_context(authorized_entities=authorized_entities)
 
         # THEN
         assert_equals(
@@ -206,7 +206,7 @@ class KaurnaUtilsTests(TestCase):
         authorized_entities = ['Sterling Archer', 'Cyril Figgis']
 
         patch(
-            'kaurna.utils.load_all_entries',
+            'kaurna.load_all_entries',
             Mock(
                 return_value = [
                     {'secret_name':'password','secret_version':3}
@@ -228,7 +228,7 @@ class KaurnaUtilsTests(TestCase):
         authorized_entities = ['Sterling Archer', 'Cyril Figgis']
 
         patch(
-            'kaurna.utils.load_all_entries',
+            'kaurna.load_all_entries',
             Mock(
                 return_value = [
                     {'secret_name':'password','secret_version':1},
@@ -238,13 +238,13 @@ class KaurnaUtilsTests(TestCase):
                 )
             ).start()
 
-        patch('kaurna.utils.get_data_key', Mock(return_value={'CiphertextBlob':'abcdabcdabcdabcd','Plaintext':'1234123412341234'})).start()
-        patch('kaurna.utils.encrypt_with_key', Mock(return_value='<insert encrypted stuff here>')).start()
-        patch('kaurna.utils.time.time', Mock(return_value=1234.5678)).start()
+        patch('kaurna.get_data_key', Mock(return_value={'CiphertextBlob':'abcdabcdabcdabcd','Plaintext':'1234123412341234'})).start()
+        patch('kaurna.encrypt_with_key', Mock(return_value='<insert encrypted stuff here>')).start()
+        patch('kaurna.time.time', Mock(return_value=1234.5678)).start()
 
         mock_table = MagicMock()
         mock_get_table = MagicMock(return_value=mock_table)
-        patch('kaurna.utils.get_kaurna_table', mock_get_table).start()
+        patch('kaurna.get_kaurna_table', mock_get_table).start()
 
         mock_item = MagicMock()
         mock_table.new_item.return_value = mock_item
@@ -286,19 +286,19 @@ class KaurnaUtilsTests(TestCase):
         authorized_entities = ['Sterling Archer', 'Cyril Figgis']
 
         patch(
-            'kaurna.utils.load_all_entries',
+            'kaurna.load_all_entries',
             Mock(
                 return_value = []
                 )
             ).start()
 
-        patch('kaurna.utils.get_data_key', Mock(return_value={'CiphertextBlob':'abcdabcdabcdabcd','Plaintext':'1234123412341234'})).start()
-        patch('kaurna.utils.encrypt_with_key', Mock(return_value='<insert encrypted stuff here>')).start()
-        patch('kaurna.utils.time.time', Mock(return_value=1234.5678)).start()
+        patch('kaurna.get_data_key', Mock(return_value={'CiphertextBlob':'abcdabcdabcdabcd','Plaintext':'1234123412341234'})).start()
+        patch('kaurna.encrypt_with_key', Mock(return_value='<insert encrypted stuff here>')).start()
+        patch('kaurna.time.time', Mock(return_value=1234.5678)).start()
 
         mock_table = MagicMock()
         mock_get_table = MagicMock(return_value=mock_table)
-        patch('kaurna.utils.get_kaurna_table', mock_get_table).start()
+        patch('kaurna.get_kaurna_table', mock_get_table).start()
 
         mock_item = MagicMock()
         mock_table.new_item.return_value = mock_item
@@ -352,7 +352,7 @@ class KaurnaUtilsTests(TestCase):
 
         mock_table = MagicMock()
         mock_get_table = MagicMock(return_value=mock_table)
-        patch('kaurna.utils.get_kaurna_table', mock_get_table).start()
+        patch('kaurna.get_kaurna_table', mock_get_table).start()
         expected_output = [
             {'secret_name':secret_name,'secret_version':secret_version}
             ]
@@ -383,7 +383,7 @@ class KaurnaUtilsTests(TestCase):
 
         mock_table = MagicMock()
         mock_get_table = MagicMock(return_value=mock_table)
-        patch('kaurna.utils.get_kaurna_table', mock_get_table).start()
+        patch('kaurna.get_kaurna_table', mock_get_table).start()
         expected_output = [
             {'secret_name':secret_name,'secret_version':1},
             {'secret_name':secret_name,'secret_version':2}
@@ -415,7 +415,7 @@ class KaurnaUtilsTests(TestCase):
 
         mock_table = MagicMock()
         mock_get_table = MagicMock(return_value=mock_table)
-        patch('kaurna.utils.get_kaurna_table', mock_get_table).start()
+        patch('kaurna.get_kaurna_table', mock_get_table).start()
         expected_output = [
             {'secret_name':'password','secret_version':1},
             {'secret_name':'password','secret_version':2},
@@ -451,13 +451,13 @@ class KaurnaUtilsTests(TestCase):
         item3 = MagicMock()
         mock_load_all_entries = MagicMock(return_value = [item1, item2, item3])
         patch(
-            'kaurna.utils.load_all_entries',
+            'kaurna.load_all_entries',
             mock_load_all_entries
             ).start()
 
         mock_reencrypt_item_and_save = MagicMock()
         patch(
-            'kaurna.utils._reencrypt_item_and_save',
+            'kaurna._reencrypt_item_and_save',
             mock_reencrypt_item_and_save
             ).start()
 
@@ -486,13 +486,13 @@ class KaurnaUtilsTests(TestCase):
         item = MagicMock()
         mock_load_all_entries = MagicMock(return_value = [item])
         patch(
-            'kaurna.utils.load_all_entries',
+            'kaurna.load_all_entries',
             mock_load_all_entries
             ).start()
 
         mock_reencrypt_item_and_save = MagicMock()
         patch(
-            'kaurna.utils._reencrypt_item_and_save',
+            'kaurna._reencrypt_item_and_save',
             mock_reencrypt_item_and_save
             ).start()
 
@@ -517,36 +517,36 @@ class KaurnaUtilsTests(TestCase):
 
         mock_get_data_key = MagicMock(return_value = {'Plaintext':'data_key_plaintext', 'CiphertextBlob':'data_key_ciphertext'})
         patch(
-            'kaurna.utils.get_data_key',
+            'kaurna.get_data_key',
             mock_get_data_key
             ).start()
 
         mock_decrypt_with_kms = MagicMock(return_value = {'Plaintext': 'decrypt_with_kms_output'})
         patch(
-            'kaurna.utils.decrypt_with_kms',
+            'kaurna.decrypt_with_kms',
             mock_decrypt_with_kms
             ).start()
 
         mock_decrypt_with_key = MagicMock(return_value = 'decrypt_with_key_output')
         patch(
-            'kaurna.utils.decrypt_with_key',
+            'kaurna.decrypt_with_key',
             mock_decrypt_with_key
             ).start()
 
         mock_encrypt_with_key = MagicMock(return_value = 'encrypt_with_key_output')
         patch(
-            'kaurna.utils.encrypt_with_key',
+            'kaurna.encrypt_with_key',
             mock_encrypt_with_key
             ).start()
 
         patch(
-            'kaurna.utils.time.time',
+            'kaurna.time.time',
             Mock(return_value = 1234.567)
             ).start()
 
         # WHEN
 
-        output = kaurna.utils._reencrypt_item_and_save(item=item, region=self.region)
+        output = kaurna._reencrypt_item_and_save(item=item, region=self.region)
 
         # THEN
 
@@ -582,13 +582,13 @@ class KaurnaUtilsTests(TestCase):
         expected_item2 = {'secret_name':secret_name, 'secret':2, 'authorized_entities':json.dumps(['Sterling Archer','Cyril Figgis'])}
         mock_load_all_entries = MagicMock(return_value = [item1, item2])
         patch(
-            'kaurna.utils.load_all_entries',
+            'kaurna.load_all_entries',
             mock_load_all_entries
             ).start()
 
         mock_reencrypt_item_and_save = MagicMock()
         patch(
-            'kaurna.utils._reencrypt_item_and_save',
+            'kaurna._reencrypt_item_and_save',
             mock_reencrypt_item_and_save
             ).start()
 
@@ -618,13 +618,13 @@ class KaurnaUtilsTests(TestCase):
         expected_item = {'secret_name':secret_name, 'secret_version':2, 'authorized_entities':json.dumps(['Sterling Archer','Cyril Figgis'])}
         mock_load_all_entries = MagicMock(return_value = [item])
         patch(
-            'kaurna.utils.load_all_entries',
+            'kaurna.load_all_entries',
             mock_load_all_entries
             ).start()
 
         mock_reencrypt_item_and_save = MagicMock()
         patch(
-            'kaurna.utils._reencrypt_item_and_save',
+            'kaurna._reencrypt_item_and_save',
             mock_reencrypt_item_and_save
             ).start()
 
@@ -665,7 +665,7 @@ class KaurnaUtilsTests(TestCase):
         item3 = MagicMock()
         mock_load_all_entries = MagicMock(return_value = [item1, item2, item3])
         patch(
-            'kaurna.utils.load_all_entries',
+            'kaurna.load_all_entries',
             mock_load_all_entries
             ).start()
 
@@ -704,7 +704,7 @@ class KaurnaUtilsTests(TestCase):
         item = MagicMock()
         mock_load_all_entries = MagicMock(return_value = [item])
         patch(
-            'kaurna.utils.load_all_entries',
+            'kaurna.load_all_entries',
             mock_load_all_entries
             ).start()
 
@@ -727,7 +727,7 @@ class KaurnaUtilsTests(TestCase):
         # GIVEN
         mock_table = MagicMock()
         mock_get_table = MagicMock(return_value=mock_table)
-        patch('kaurna.utils.get_kaurna_table', mock_get_table).start()
+        patch('kaurna.get_kaurna_table', mock_get_table).start()
 
         # WHEN
         erase_all_the_things(seriously=False, region=self.region)
@@ -746,7 +746,7 @@ class KaurnaUtilsTests(TestCase):
         # GIVEN
         mock_table = MagicMock()
         mock_get_table = MagicMock(return_value=mock_table)
-        patch('kaurna.utils.get_kaurna_table', mock_get_table).start()
+        patch('kaurna.get_kaurna_table', mock_get_table).start()
 
         # WHEN
         erase_all_the_things(seriously=True, region=self.region)
@@ -771,7 +771,7 @@ class KaurnaUtilsTests(TestCase):
 
         mock_load_all_entries = MagicMock(return_value = [item1, item2])
         patch(
-            'kaurna.utils.load_all_entries',
+            'kaurna.load_all_entries',
             mock_load_all_entries
             ).start()
 
@@ -801,7 +801,7 @@ class KaurnaUtilsTests(TestCase):
 
         mock_load_all_entries = MagicMock(return_value = [item])
         patch(
-            'kaurna.utils.load_all_entries',
+            'kaurna.load_all_entries',
             mock_load_all_entries
             ).start()
 
@@ -828,7 +828,7 @@ class KaurnaUtilsTests(TestCase):
 
         mock_load_all_entries = MagicMock(return_value = [item1, item2])
         patch(
-            'kaurna.utils.load_all_entries',
+            'kaurna.load_all_entries',
             mock_load_all_entries
             ).start()
 
@@ -858,7 +858,7 @@ class KaurnaUtilsTests(TestCase):
 
         mock_load_all_entries = MagicMock(return_value = [item])
         patch(
-            'kaurna.utils.load_all_entries',
+            'kaurna.load_all_entries',
             mock_load_all_entries
             ).start()
 
@@ -887,7 +887,7 @@ class KaurnaUtilsTests(TestCase):
         item5 = {'secret_name': 'github_pem', 'secret_version': 4, 'create_date': 0003, 'last_data_key_rotation': 0005, 'authorized_entities': '["Algernop Krieger"]', 'deprecated': False}
 
         patch(
-            'kaurna.utils.load_all_entries',
+            'kaurna.load_all_entries',
             Mock(
                 return_value = [
                     item1,
@@ -956,7 +956,7 @@ class KaurnaUtilsTests(TestCase):
         item2 = {'secret_name': 'password', 'secret_version': 2, 'create_date': 2300, 'last_data_key_rotation': 2300, 'authorized_entities': '["Sterling Archer", "Cyril Figgis"]', 'deprecated': False}
 
         patch(
-            'kaurna.utils.load_all_entries',
+            'kaurna.load_all_entries',
             Mock(
                 return_value = [
                     item1,
@@ -1000,7 +1000,7 @@ class KaurnaUtilsTests(TestCase):
         item2 = {'secret_name': 'password', 'secret_version': 2, 'create_date': 2300, 'last_data_key_rotation': 2300, 'authorized_entities': '["Sterling Archer", "Cyril Figgis"]', 'deprecated': False}
 
         patch(
-            'kaurna.utils.load_all_entries',
+            'kaurna.load_all_entries',
             Mock(
                 return_value = [
                     item2
@@ -1048,7 +1048,7 @@ class KaurnaUtilsTests(TestCase):
         secret_version = 3
 
         patch(
-            'kaurna.utils.load_all_entries',
+            'kaurna.load_all_entries',
             Mock(
                 return_value = []
                 )
@@ -1067,7 +1067,7 @@ class KaurnaUtilsTests(TestCase):
         secret_version = None
 
         patch(
-            'kaurna.utils.load_all_entries',
+            'kaurna.load_all_entries',
             Mock(
                 return_value = [
                     {'secret_name':'password','deprecated':True,'secret_version':1},
@@ -1102,18 +1102,18 @@ class KaurnaUtilsTests(TestCase):
         mock_decrypt_with_kms = MagicMock(return_value = {'Plaintext': '<decrypted_data_key>'})
 
         patch(
-            'kaurna.utils.decrypt_with_key',
+            'kaurna.decrypt_with_key',
             mock_decrypt_with_key
             ).start()
 
         patch(
-            'kaurna.utils.decrypt_with_kms',
+            'kaurna.decrypt_with_kms',
             mock_decrypt_with_kms
             ).start()
 
 
         # WHEN
-        actual_secret = kaurna.utils._decrypt_item(item=item, region=self.region)
+        actual_secret = kaurna._decrypt_item(item=item, region=self.region)
 
         # THEN
         assert_equals(
@@ -1152,7 +1152,7 @@ class KaurnaUtilsTests(TestCase):
         mock_random = MagicMock()
         mock_random.read.return_value = base64.b64decode('sPMIV8lM3nHPpSV7DrtD1Q==')
         patch(
-            'kaurna.utils.Random.new',
+            'kaurna.Random.new',
             Mock(return_value=mock_random)
             ).start()
 
