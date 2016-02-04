@@ -122,7 +122,7 @@ class CLIDispatcher:
         kaurna.update_secrets(**kwargs)
     
     def get_secret(self, **kwargs):
-        print kaurna.get_secret(**kwargs)
+        print(kaurna.get_secret(**kwargs))
     
     def erase_all_the_things(self, **kwargs):
         seriously=False
