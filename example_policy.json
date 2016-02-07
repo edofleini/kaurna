@@ -1,0 +1,36 @@
+{
+  "Version": "2012-10-17",
+  "Statement":
+  [
+    {
+      "Effect": "Allow",
+      "Action": [
+        "kms:Create*",
+        "kms:Describe*",
+        "kms:Enable*",
+        "kms:List*",
+        "kms:Put*",
+        "kms:Update*",
+        "kms:Revoke*",
+        "kms:Get*",
+        "kms:Delete*"
+      ],
+      "Resource": "<KAURNA_KEY_ARN>"
+    },
+    {
+      "Effect": "Allow",
+      "Action": [
+        "kms:Encrypt",
+        "kms:Decrypt",
+        "kms:ReEncrypt*",
+        "kms:GenerateDataKey*"
+      ],
+      "Resource": "*",
+      "Condition": {
+        "StringEquals": {
+          "kms:EncryptionContext:<AUTHORIZED ENTITY NAME>": "kaurna"
+        }
+      }
+    }
+  ]
+}

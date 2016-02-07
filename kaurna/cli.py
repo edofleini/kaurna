@@ -54,7 +54,7 @@ class CLIDispatcher:
             print('Secret name: {0}'.format(secret))
             for version in secrets[secret].keys():
                 print('  Version: {0}'.format(version))
-                print('    Authorized entities:    {0}'.format(', '.join(secrets[secret][version]['authorized_entities'])))
+                print('    Authorized entities:    {0}'.format(', '.join(secrets[secret][version]['authorized_entities']) if secrets[secret][version]['authorized_entities'] else '[None]'))
                 print('    Deprecated:             {0}'.format('Yes' if secrets[secret][version]['deprecated'] else 'No'))
                 print('    Created:                {0}'.format(secrets[secret][version]['create_date']))
                 print('    Last data key rotation: {0}'.format(secrets[secret][version]['last_data_key_rotation']))
