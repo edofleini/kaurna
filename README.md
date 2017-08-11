@@ -9,4 +9,4 @@ Random notes on my development style:
 
 Relies on boto >= 2.38 and pycrypto.  Unit tests rely on mock and nose.
 
-The file example_policy.json contains a policy template that can be used to create an IAM policy for a kaurna user.  Replace <KAURNA_KEY_ARN> with the ARN of the kaurna key in your account and <AUTHORIZED ENTITY NAME> (yep, spaces are okay) with the name of the user.  If a user should have access to multiple entity's secrets, the second block (lines 20-34) can be repeated with different names within the same policy.
+The file example_policy.json contains a policy template that can be used to create an IAM policy for a kaurna user.  Replace \<KAURNA_KEY_ARN> with the ARN of the kaurna key in your account and \<AUTHORIZED ENTITY NAME> (yep, spaces are okay) with the name of the user.  If a user should have access to multiple entity's secrets, the second block (lines 20-34) can be repeated with different names within the same policy.
